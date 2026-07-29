@@ -7,14 +7,14 @@ export const Navbar = () => {
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
 
-  const isCalendarActive = location.pathname === '/calendar';
+  const isCalendarActive = location.pathname === '/' || location.pathname === '/calendar';
 
   return (
     <nav className="navbar">
       <div className="nav-container">
         
-        {/* Le'Tohfa Booking System Brand Title */}
-        <NavLink to="/dashboard" className="nav-brand" title="Le'Tohfa Booking System">
+        {/* Le'Tohfa Booking System Brand Title (Lands on Calendar) */}
+        <NavLink to="/" className="nav-brand" title="Le'Tohfa Booking System">
           <Palmtree color="#16a34a" size={26} />
           <span style={{ fontWeight: '800', fontSize: '1.25rem', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
             Le'Tohfa Booking System
@@ -25,17 +25,17 @@ export const Navbar = () => {
         <div className="nav-links">
           
           <NavLink
+            to="/calendar"
+            className={isCalendarActive ? 'nav-link active' : 'nav-link'}
+          >
+            <Calendar size={16} /> Calendar
+          </NavLink>
+
+          <NavLink
             to="/dashboard"
             className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
           >
             <LayoutDashboard size={16} /> Dashboard
-          </NavLink>
-
-          <NavLink
-            to="/calendar"
-            className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
-          >
-            <Calendar size={16} /> Calendar
           </NavLink>
 
           <NavLink

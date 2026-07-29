@@ -16,13 +16,13 @@ export function App() {
           <div style={{ minHeight: '100vh', background: 'var(--bg-color)', color: 'var(--text-main)' }}>
             <Navbar />
             <Routes>
-              {/* Default Landing Page is Dashboard */}
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/dashboard" element={<Dashboard />} />
+              {/* Default Landing Page is Calendar View */}
+              <Route path="/" element={<CalendarView />} />
               <Route path="/calendar" element={<CalendarView />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/bookings" element={<BookingsList />} />
               <Route path="/block-date" element={<BlockDateForm />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
         </Router>
