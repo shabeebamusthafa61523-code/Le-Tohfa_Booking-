@@ -13,11 +13,11 @@ export const Navbar = () => {
     <nav className="navbar">
       <div className="nav-container">
         
-        {/* Le'Tohfa Booking System Brand Title (Lands on Calendar) */}
-        <NavLink to="/" className="nav-brand" title="Le'Tohfa Booking System">
+        {/* LETOHFA BOOKING Brand Title */}
+        <NavLink to="/" className="nav-brand" title="LETOHFA BOOKING">
           <Palmtree color="#16a34a" size={26} />
-          <span style={{ fontWeight: '800', fontSize: '1.25rem', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
-            Le'Tohfa Booking System
+          <span style={{ fontWeight: '900', fontSize: '1.25rem', color: 'var(--text-main)', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+            LETOHFA BOOKING
           </span>
         </NavLink>
 
