@@ -1,0 +1,11 @@
+{
+  "name": "letohfa-resort-booking",
+  "version": "1.0.0",
+  "description": "Le'Tohfa Resort Booking System",
+  "main": "backend/server.js",
+  "type": "module",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build && cd ../backend && npm install",
+    "start": "cd backend && node server.js"
+  }
+}
