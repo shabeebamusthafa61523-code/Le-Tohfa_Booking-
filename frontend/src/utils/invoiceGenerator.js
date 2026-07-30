@@ -2,7 +2,7 @@
  * generateAdvanceInvoice
  * Opens a professional A4 single-page Advance Invoice in a new browser tab.
  * - 📄 Guaranteed Single Page A4 Layout (no overflow or page breaks)
- * - ⬇️ Save as PDF → Full un-truncated PDF download using off-screen 794px desktop rendering engine
+ * - ⬇️ Save as PDF → Auto-downloads PDF directly to mobile Downloads/Files folder via Blob URL & Web Share
  * - 📸 Save as Photo → Auto-saves high-res PNG directly to Gallery / Photos on Mobile & Desktop
  *
  * @param {Object} booking - The booking object from MongoDB
@@ -427,7 +427,6 @@ export const generateAdvanceInvoice = (booking) => {
         function renderCanvasForExport(callback) {
           const originalCard = document.getElementById('invoiceCard');
           
-          // Create temporary off-screen container with fixed desktop A4 width (794px)
           const offscreenContainer = document.createElement('div');
           offscreenContainer.style.position = 'absolute';
           offscreenContainer.style.left = '-9999px';
@@ -438,7 +437,6 @@ export const generateAdvanceInvoice = (booking) => {
           offscreenContainer.style.margin = '0';
           
           const cloneCard = originalCard.cloneNode(true);
-          // Ensure clone wrapper has exact desktop padding
           cloneCard.style.padding = '44px 50px';
           cloneCard.style.width = '794px';
           cloneCard.style.maxWidth = '794px';
@@ -449,7 +447,7 @@ export const generateAdvanceInvoice = (booking) => {
           document.body.appendChild(offscreenContainer);
 
           html2canvas(cloneCard, {
-            scale: 2, // High resolution crisp rendering
+            scale: 2,
             useCORS: true,
             allowTaint: true,
             backgroundColor: '#ffffff',
@@ -465,10 +463,10 @@ export const generateAdvanceInvoice = (booking) => {
           });
         }
 
-        // Full Un-Truncated Mobile & Desktop PDF Download
+        // AUTO-DOWNLOAD PDF ON MOBILE & DESKTOP (Triggers direct file save instead of only viewing)
         function downloadPDF() {
           const btn = document.getElementById('pdfBtn');
-          btn.textContent = '⏳ Generating PDF...';
+          btn.textContent = '⏳ Downloading PDF...';
           btn.classList.add('btn-loading');
 
           renderCanvasForExport(function(canvas) {
@@ -494,9 +492,8 @@ export const generateAdvanceInvoice = (booking) => {
               let imgW = pageW;
               let imgH = (canvas.height * pageW) / canvas.width;
 
-              // If image height exceeds A4 height, scale both width & height proportionally to fit 100% inside 1 page
               if (imgH > pageH) {
-                const ratio = (pageH - 6) / imgH; // 3mm top/bottom margin
+                const ratio = (pageH - 6) / imgH;
                 imgH = pageH - 6;
                 imgW = imgW * ratio;
               }
@@ -505,10 +502,27 @@ export const generateAdvanceInvoice = (booking) => {
               const yMargin = (pageH - imgH) / 2;
 
               pdf.addImage(imgData, 'JPEG', xMargin, yMargin, imgW, imgH);
-              pdf.save('Invoice-${guestName.replace(/\\s+/g, '_')}-${invoiceNumber}.pdf');
+              
+              // Generate PDF Blob for direct auto-download on mobile devices
+              const pdfBlob = pdf.output('blob');
+              const pdfFileName = 'Invoice-${guestName.replace(/\\s+/g, '_')}-${invoiceNumber}.pdf';
+              const pdfFile = new File([pdfBlob], pdfFileName, { type: 'application/pdf' });
 
-              btn.textContent = '⬇️ Download PDF';
-              btn.classList.remove('btn-loading');
+              // Web Share API support for mobile (opens native share sheet to save directly to Files/Downloads)
+              if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                navigator.share({
+                  files: [pdfFile],
+                  title: 'LeTohfa Invoice PDF',
+                  text: 'Advance Invoice for ${guestName}'
+                }).then(() => {
+                  btn.textContent = '⬇️ Download PDF';
+                  btn.classList.remove('btn-loading');
+                }).catch(() => {
+                  triggerDirectPdfFileSave(pdfBlob, pdfFileName);
+                });
+              } else {
+                triggerDirectPdfFileSave(pdfBlob, pdfFileName);
+              }
             } catch (e) {
               console.error(e);
               window.print();
@@ -516,6 +530,22 @@ export const generateAdvanceInvoice = (booking) => {
               btn.classList.remove('btn-loading');
             }
           });
+
+          function triggerDirectPdfFileSave(blob, fileName) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              btn.textContent = '⬇️ Download PDF';
+              btn.classList.remove('btn-loading');
+            }, 400);
+          }
         }
 
         // Auto-save Photo to Gallery / Photos on Mobile & Desktop
@@ -543,7 +573,6 @@ export const generateAdvanceInvoice = (booking) => {
               const fileName = 'Invoice-${guestName.replace(/\\s+/g, '_')}-${invoiceNumber}.png';
               const file = new File([blob], fileName, { type: 'image/png' });
 
-              // Web Share API support for mobile (saves directly to Photos / Gallery menu)
               if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 navigator.share({
                   files: [file],
