@@ -1,9 +1,9 @@
 /**
  * generateAdvanceInvoice
- * Opens a professional A4-formatted Advance Invoice in a new browser tab.
- * - 📱 Fully Responsive on Mobile & Desktop (looks like a clean A4 sheet)
- * - ⬇️ Save as PDF  → triggers browser print dialog (select "Save as PDF")
- * - 📸 Save as Photo → html2canvas (CDN) captures invoice as high-res PNG
+ * Opens a professional A4 single-page Advance Invoice in a new browser tab.
+ * - 📄 Guaranteed Single Page A4 Layout (no overflow or page breaks)
+ * - ⬇️ Save as PDF → Clean 1-Click PDF file download + print options with NO browser headers/footers
+ * - 📸 Save as Photo → High-res PNG image download
  *
  * @param {Object} booking - The booking object from MongoDB
  */
@@ -62,25 +62,29 @@ export const generateAdvanceInvoice = (booking) => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
       <title>Advance Invoice - ${guestName} - ${invoiceNumber}</title>
 
-      <!-- html2canvas from CDN for Save as Photo -->
+      <!-- html2canvas and jspdf CDN for direct clean PDF and PNG downloads -->
       <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
       <style>
         * { margin:0; padding:0; box-sizing:border-box; }
 
-        body {
-          font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+        html, body {
           background: #eef2f7;
           color: #1a1a1a;
-          min-height: 100vh;
-          padding: 24px 12px 40px;
+          font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
           -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+          min-height: 100vh;
+          padding: 20px 12px 30px;
         }
 
         /* ── ACTION BAR ── */
         .action-bar {
-          max-width: 794px;
-          margin: 0 auto 18px;
+          max-width: 760px;
+          margin: 0 auto 16px;
           display: flex;
           justify-content: flex-end;
           gap: 10px;
@@ -90,10 +94,10 @@ export const generateAdvanceInvoice = (booking) => {
           display: inline-flex;
           align-items: center;
           gap: 7px;
-          padding: 10px 20px;
+          padding: 9px 18px;
           border: none;
           border-radius: 8px;
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 700;
           cursor: pointer;
           transition: transform 0.15s, opacity 0.15s;
@@ -104,16 +108,18 @@ export const generateAdvanceInvoice = (booking) => {
         .btn-photo  { background:linear-gradient(135deg,#7c3aed,#6d28d9); color:#fff; box-shadow:0 4px 12px rgba(124,58,237,0.3); }
         .btn-loading { opacity:0.7; pointer-events:none; }
 
-        /* ── INVOICE A4 SHEET CONTAINER ── */
+        /* ── COMPACT SINGLE PAGE A4 INVOICE CARD ── */
         .invoice-wrapper {
           width: 100%;
-          max-width: 794px; /* Standard A4 Width at 96 DPI */
+          max-width: 760px;
           margin: 0 auto;
           background: #ffffff;
           border-radius: 12px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.12);
-          padding: 48px 52px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.10);
+          padding: 36px 42px;
           position: relative;
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
 
         /* ── HEADER ── */
@@ -121,27 +127,27 @@ export const generateAdvanceInvoice = (booking) => {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 32px;
-          padding-bottom: 20px;
+          margin-bottom: 22px;
+          padding-bottom: 16px;
           border-bottom: 3px solid #16a34a;
           gap: 16px;
         }
-        .brand img { height: 72px; width: auto; object-fit: contain; }
+        .brand img { height: 60px; width: auto; object-fit: contain; }
         .invoice-badge { text-align: right; }
-        .invoice-badge h2 { font-size:26px; font-weight:800; color:#1a1a1a; letter-spacing:-0.5px; }
-        .invoice-badge .inv-number { font-size:13px; color:#16a34a; font-weight:700; margin-top:4px; }
-        .invoice-badge .inv-date   { font-size:12px; color:#6b7280; margin-top:2px; }
+        .invoice-badge h2 { font-size:24px; font-weight:800; color:#1a1a1a; letter-spacing:-0.5px; }
+        .invoice-badge .inv-number { font-size:12px; color:#16a34a; font-weight:700; margin-top:3px; }
+        .invoice-badge .inv-date   { font-size:11px; color:#6b7280; margin-top:2px; }
 
         /* ── STATUS BANNER ── */
         .status-banner {
           display: inline-block;
-          padding: 5px 16px;
+          padding: 4px 14px;
           border-radius: 20px;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 700;
           letter-spacing: 0.05em;
           text-transform: uppercase;
-          margin-bottom: 24px;
+          margin-bottom: 18px;
         }
         .status-confirmed { background:#dcfce7; color:#166534; border:1px solid #86efac; }
         .status-pending   { background:#fef9c3; color:#854d0e; border:1px solid #fde047; }
@@ -155,40 +161,40 @@ export const generateAdvanceInvoice = (booking) => {
           text-transform: uppercase;
           letter-spacing: 0.08em;
           color: #9ca3af;
-          margin-bottom: 10px;
+          margin-bottom: 8px;
         }
 
         /* ── GUEST INFO GRID ── */
         .guest-section {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 14px;
-          margin-bottom: 26px;
+          gap: 12px;
+          margin-bottom: 18px;
         }
         .info-card {
           background: #f8fafb;
           border: 1px solid #e5e7eb;
-          border-radius: 10px;
-          padding: 16px 18px;
+          border-radius: 8px;
+          padding: 12px 14px;
         }
-        .info-card .label     { font-size:11px; color:#9ca3af; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px; }
-        .info-card .value     { font-size:15px; font-weight:700; color:#111827; }
-        .info-card .sub-value { font-size:13px; color:#6b7280; margin-top:3px; }
+        .info-card .label     { font-size:10px; color:#9ca3af; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:3px; }
+        .info-card .value     { font-size:14px; font-weight:700; color:#111827; }
+        .info-card .sub-value { font-size:12px; color:#6b7280; margin-top:2px; }
 
         /* ── DETAILS TABLE ── */
         .details-table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 26px;
-          border-radius: 10px;
+          margin-bottom: 18px;
+          border-radius: 8px;
           overflow: hidden;
           border: 1px solid #e5e7eb;
         }
         .details-table thead tr { background:#16a34a; color:#fff; }
         .details-table thead th {
-          padding: 11px 15px;
+          padding: 9px 12px;
           text-align: left;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.06em;
@@ -196,33 +202,33 @@ export const generateAdvanceInvoice = (booking) => {
         .details-table tbody tr { border-bottom:1px solid #f0f0f0; }
         .details-table tbody tr:last-child { border-bottom:none; }
         .details-table tbody tr:nth-child(even) { background:#f9fafb; }
-        .details-table tbody td { padding:12px 15px; font-size:14px; color:#374151; }
+        .details-table tbody td { padding:10px 12px; font-size:13px; color:#374151; }
         .details-table tbody td.label-col {
-          font-weight:600; color:#6b7280; font-size:12px;
-          text-transform:uppercase; letter-spacing:0.04em; width:42%;
+          font-weight:600; color:#6b7280; font-size:11px;
+          text-transform:uppercase; letter-spacing:0.04em; width:40%;
         }
 
         /* ── AMOUNTS BOX ── */
         .amounts-box {
           background: #f0fdf4;
           border: 2px solid #86efac;
-          border-radius: 12px;
-          padding: 20px 24px;
-          margin-bottom: ${additionalNote ? '14px' : '26px'};
+          border-radius: 10px;
+          padding: 16px 20px;
+          margin-bottom: ${additionalNote ? '12px' : '18px'};
         }
         .amount-row {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 7px 0;
-          font-size: 14px;
+          padding: 5px 0;
+          font-size: 13px;
           color: #374151;
         }
         .amount-row.total-row {
           border-top: 2px solid #16a34a;
-          margin-top: 8px;
-          padding-top: 12px;
-          font-size: 17px;
+          margin-top: 6px;
+          padding-top: 10px;
+          font-size: 16px;
           font-weight: 800;
           color: #166534;
         }
@@ -232,61 +238,72 @@ export const generateAdvanceInvoice = (booking) => {
         .charges-note {
           background: #fffbeb;
           border: 1px solid #fcd34d;
-          border-radius: 10px;
-          padding: 12px 16px;
-          margin-bottom: 26px;
+          border-radius: 8px;
+          padding: 10px 14px;
+          margin-bottom: 18px;
           display: flex;
           align-items: flex-start;
-          gap: 10px;
+          gap: 8px;
         }
-        .charges-note .note-icon { font-size:17px; flex-shrink:0; margin-top:1px; }
-        .charges-note .note-text { font-size:13px; color:#92400e; font-weight:600; line-height:1.5; }
-        .charges-note .note-title { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:#b45309; margin-bottom:3px; }
+        .charges-note .note-icon { font-size:15px; flex-shrink:0; margin-top:1px; }
+        .charges-note .note-text { font-size:12px; color:#92400e; font-weight:600; line-height:1.4; }
+        .charges-note .note-title { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:#b45309; margin-bottom:2px; }
 
         /* ── FOOTER ── */
         .invoice-footer {
           border-top: 1px solid #e5e7eb;
-          padding-top: 18px;
+          padding-top: 14px;
           display: flex;
           justify-content: space-between;
           align-items: flex-end;
-          gap: 16px;
+          gap: 14px;
         }
-        .footer-note { font-size:12px; color:#9ca3af; max-width:320px; line-height:1.6; }
-        .stamp-area .stamp-line { width:140px; border-bottom:1px dashed #d1d5db; margin-bottom:5px; }
-        .stamp-area p { font-size:11px; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em; text-align:center; }
+        .footer-note { font-size:11px; color:#9ca3af; max-width:320px; line-height:1.5; }
+        .stamp-area .stamp-line { width:130px; border-bottom:1px dashed #d1d5db; margin-bottom:4px; }
+        .stamp-area p { font-size:10px; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em; text-align:center; }
 
         /* ── MOBILE RESPONSIVE MEDIA QUERIES ── */
         @media screen and (max-width: 640px) {
-          body { padding: 12px 8px 24px; }
-          .action-bar { justify-content: center; gap: 8px; margin-bottom: 12px; }
-          .action-btn { padding: 8px 14px; font-size: 13px; flex: 1; justify-content: center; }
-          .invoice-wrapper { padding: 24px 18px; border-radius: 10px; }
-          .header { flex-direction: row; align-items: center; margin-bottom: 20px; padding-bottom: 16px; }
-          .brand img { height: 52px; }
-          .invoice-badge h2 { font-size: 20px; }
-          .invoice-badge .inv-number { font-size: 11px; }
-          .guest-section { grid-template-columns: 1fr 1fr; gap: 10px; }
-          .info-card { padding: 12px 14px; }
-          .info-card .value { font-size: 14px; }
-          .details-table tbody td { padding: 10px 12px; font-size: 13px; }
-          .amounts-box { padding: 16px 18px; }
-          .amount-row { font-size: 13px; }
-          .amount-row.total-row { font-size: 15px; }
-          .invoice-footer { flex-direction: row; gap: 12px; }
+          body { padding: 10px 6px 18px; }
+          .action-bar { justify-content: center; gap: 6px; margin-bottom: 10px; }
+          .action-btn { padding: 8px 12px; font-size: 12px; flex: 1; justify-content: center; }
+          .invoice-wrapper { padding: 20px 14px; border-radius: 8px; }
+          .header { margin-bottom: 16px; padding-bottom: 12px; }
+          .brand img { height: 46px; }
+          .invoice-badge h2 { font-size: 18px; }
+          .invoice-badge .inv-number { font-size: 10px; }
+          .guest-section { grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+          .info-card { padding: 10px 12px; }
+          .info-card .value { font-size: 13px; }
+          .details-table tbody td { padding: 8px 10px; font-size: 12px; }
+          .amounts-box { padding: 14px 16px; margin-bottom: 14px; }
+          .amount-row { font-size: 12px; }
+          .amount-row.total-row { font-size: 14px; }
         }
 
-        /* ── PRINT MEDIA STYLES (A4 SHEET PRINTING) ── */
-        @page { size: A4 portrait; margin: 12mm; }
+        /* ── CLEAN SINGLE PAGE A4 PRINTING (NO BROWSER HEADERS/FOOTERS) ── */
+        @page {
+          size: A4 portrait;
+          margin: 0; /* Zero margin removes browser URLs, dates, page 1 of 1 text */
+        }
         @media print {
-          body { background:#fff; padding:0; }
-          .action-bar { display:none !important; }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .action-bar { display: none !important; }
           .invoice-wrapper {
-            box-shadow:none;
-            border-radius:0;
-            padding:0;
-            max-width:100%;
-            width:100%;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            padding: 32px 40px !important;
+            margin: 0 auto !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
         }
       </style>
@@ -297,10 +314,10 @@ export const generateAdvanceInvoice = (booking) => {
       <div class="action-bar">
         <button class="action-btn btn-close"  onclick="window.close()">✕ Close</button>
         <button class="action-btn btn-photo"  onclick="saveAsPhoto()" id="photoBtn">📸 Save as Photo</button>
-        <button class="action-btn btn-pdf"    onclick="window.print()">⬇️ Save as PDF</button>
+        <button class="action-btn btn-pdf"    onclick="downloadPDF()" id="pdfBtn">⬇️ Download PDF</button>
       </div>
 
-      <!-- INVOICE CARD (A4 Sheet Preview) -->
+      <!-- INVOICE CARD (A4 Single Page Sheet) -->
       <div class="invoice-wrapper" id="invoiceCard">
 
         <!-- HEADER -->
@@ -344,11 +361,11 @@ export const generateAdvanceInvoice = (booking) => {
           <tbody>
             <tr>
               <td class="label-col">Check-in Date &amp; Time</td>
-              <td><strong>${formatDate(booking.startDate)}</strong><br/><span style="color:#6b7280;font-size:13px;">🕐 ${checkInTime}</span></td>
+              <td><strong>${formatDate(booking.startDate)}</strong><br/><span style="color:#6b7280;font-size:12px;">🕐 ${checkInTime}</span></td>
             </tr>
             <tr>
               <td class="label-col">Check-out Date &amp; Time</td>
-              <td><strong>${formatDate(booking.endDate)}</strong><br/><span style="color:#6b7280;font-size:13px;">🕐 ${checkOutTime}</span></td>
+              <td><strong>${formatDate(booking.endDate)}</strong><br/><span style="color:#6b7280;font-size:12px;">🕐 ${checkOutTime}</span></td>
             </tr>
             <tr>
               <td class="label-col">Booking Type</td>
@@ -365,7 +382,7 @@ export const generateAdvanceInvoice = (booking) => {
             <span class="amount-value">${formatCurrency(basicAmount)}</span>
           </div>
           ${totalAmount ? `
-          <div class="amount-row" style="border-top:1px dashed #86efac;padding-top:8px;margin-top:4px;">
+          <div class="amount-row" style="border-top:1px dashed #86efac;padding-top:6px;margin-top:3px;">
             <span style="font-weight:700;">Total Amount</span>
             <span class="amount-value" style="color:#1e40af;">${formatCurrency(totalAmount)}</span>
           </div>` : ''}
@@ -373,7 +390,7 @@ export const generateAdvanceInvoice = (booking) => {
             <span>✅ Advance Amount Paid</span>
             <span class="amount-value">${formatCurrency(booking.advanceAmount)}</span>
           </div>
-          <div class="amount-row" style="font-size:13px;color:#6b7280;margin-top:8px;">
+          <div class="amount-row" style="font-size:12px;color:#6b7280;margin-top:6px;">
             <span>Balance Due</span>
             <span>${formatCurrency(balance >= 0 ? balance : 0)}</span>
           </div>
@@ -406,6 +423,42 @@ export const generateAdvanceInvoice = (booking) => {
       </div>
 
       <script>
+        // Direct Clean PDF Generation (no printing artifacts, no URL headers/footers)
+        function downloadPDF() {
+          const btn = document.getElementById('pdfBtn');
+          btn.textContent = '⏳ Generating PDF...';
+          btn.classList.add('btn-loading');
+
+          const card = document.getElementById('invoiceCard');
+
+          html2canvas(card, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            scrollX: 0,
+            scrollY: -window.scrollY,
+          }).then(canvas => {
+            const imgData = canvas.toDataURL('image/jpeg', 0.98);
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save('Invoice-${guestName.replace(/\\s+/g, '_')}-${invoiceNumber}.pdf');
+
+            btn.textContent = '⬇️ Download PDF';
+            btn.classList.remove('btn-loading');
+          }).catch(err => {
+            // Fallback to clean browser print
+            window.print();
+            btn.textContent = '⬇️ Download PDF';
+            btn.classList.remove('btn-loading');
+          });
+        }
+
+        // Save as High-Res PNG Photo
         function saveAsPhoto() {
           const btn = document.getElementById('photoBtn');
           btn.textContent = '⏳ Saving...';
@@ -427,7 +480,7 @@ export const generateAdvanceInvoice = (booking) => {
             btn.textContent = '📸 Save as Photo';
             btn.classList.remove('btn-loading');
           }).catch(err => {
-            alert('Could not capture image. Please try Save as PDF instead.');
+            alert('Could not capture image.');
             btn.textContent = '📸 Save as Photo';
             btn.classList.remove('btn-loading');
           });
