@@ -4,14 +4,14 @@ export const SplashScreen = ({ onFinished }) => {
   const [fadeOut, setFadeOut] = useState(false);
 
   useEffect(() => {
-    // Show splash screen for 1.4s, then fade out
+    // Show splash screen for 1.2s, then fade out
     const timer = setTimeout(() => {
       setFadeOut(true);
-    }, 1400);
+    }, 1200);
 
     const finishTimer = setTimeout(() => {
       if (onFinished) onFinished();
-    }, 1850);
+    }, 1650);
 
     return () => {
       clearTimeout(timer);
@@ -50,16 +50,16 @@ export const SplashScreen = ({ onFinished }) => {
         }}
       >
         {/* Le'Tohfa Farmfinity Transparent Wooden Logo 2 */}
-        <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
+        <div style={{ position: 'relative', marginBottom: '1rem' }}>
           <img
             src="/logo2.png"
             alt="Le'Tohfa Farmfinity Logo"
             style={{
-              maxWidth: '310px',
+              maxWidth: '320px',
               width: '90%',
               height: 'auto',
               objectFit: 'contain',
-              filter: 'drop-shadow(0 8px 20px rgba(0, 0, 0, 0.12))',
+              filter: 'drop-shadow(0 10px 24px rgba(0, 0, 0, 0.12))',
             }}
           />
         </div>
@@ -67,42 +67,17 @@ export const SplashScreen = ({ onFinished }) => {
         {/* Subtitle */}
         <p
           style={{
-            fontSize: '0.82rem',
+            fontSize: '0.85rem',
             fontWeight: '800',
             color: '#16a34a',
-            letterSpacing: '0.16em',
+            letterSpacing: '0.18em',
             textTransform: 'uppercase',
-            margin: '0 0 2.25rem 0',
+            margin: 0,
           }}
         >
           RESORT BOOKING SYSTEM
         </p>
-
-        {/* Animated Loader Spinner */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
-          <div
-            style={{
-              width: '38px',
-              height: '38px',
-              border: '3.5px solid rgba(22, 163, 74, 0.15)',
-              borderTopColor: '#16a34a',
-              borderRightColor: '#059669',
-              borderRadius: '50%',
-              animation: 'splashSpin 0.75s linear infinite',
-            }}
-          />
-          <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '600', letterSpacing: '0.03em' }}>
-            Loading Resort Calendar...
-          </span>
-        </div>
       </div>
-
-      <style>{`
-        @keyframes splashSpin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 };
