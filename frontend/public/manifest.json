@@ -1,0 +1,17 @@
+{
+  "short_name": "LeTohfa",
+  "name": "LETOHFA BOOKING",
+  "description": "Le'Tohfa Resort Booking and Date Blocking Management System",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "display": "standalone",
+  "orientation": "portrait"
+}
