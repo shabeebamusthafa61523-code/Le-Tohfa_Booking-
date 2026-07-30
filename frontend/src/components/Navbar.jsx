@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, List, PlusCircle, Sun, Moon, Palmtree, LayoutDashboard, Wifi, WifiOff } from 'lucide-react';
+import { Calendar, List, PlusCircle, Sun, Moon, Palmtree, LayoutDashboard, Wifi, WifiOff, Share2 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import { syncOfflineBookings } from '../utils/offlineStorage';
@@ -29,7 +29,6 @@ export const Navbar = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Initial check on mount
     if (navigator.onLine) {
       syncOfflineBookings(axios, toast);
     }
@@ -39,6 +38,31 @@ export const Navbar = () => {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  const handleShareApp = async () => {
+    const shareUrl = window.location.origin;
+    const shareData = {
+      title: 'LETOHFA BOOKING App',
+      text: 'Open and install LETOHFA Booking App on your home screen:',
+      url: shareUrl,
+    };
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+      } catch (e) {
+        // User cancelled or share failed, fallback to clipboard
+        copyToClipboard(shareUrl);
+      }
+    } else {
+      copyToClipboard(shareUrl);
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    toast.success('🔗 App Link copied to clipboard! Share on WhatsApp to install on home screen.');
+  };
 
   return (
     <nav className="navbar">
@@ -53,7 +77,6 @@ export const Navbar = () => {
             </span>
           </NavLink>
 
-          {/* Network Status Badge */}
           {!isOnline && (
             <span
               style={{
@@ -75,7 +98,7 @@ export const Navbar = () => {
           )}
         </div>
 
-        {/* Navigation Links & Day/Night Mode Symbol Toggle */}
+        {/* Navigation Links & Day/Night Mode Symbol Toggle & Share App */}
         <div className="nav-links">
           
           <NavLink
@@ -105,6 +128,25 @@ export const Navbar = () => {
           >
             <PlusCircle size={16} /> Block Date
           </NavLink>
+
+          {/* Share App Link Button */}
+          <button
+            type="button"
+            onClick={handleShareApp}
+            className="theme-toggle-btn"
+            style={{
+              padding: '0.45rem',
+              borderRadius: '50%',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justify: 'center',
+              width: '36px',
+              height: '36px',
+            }}
+            title="Share App Link / Install to Home Screen"
+          >
+            <Share2 size={17} color="#16a34a" />
+          </button>
 
           {/* Theme Switcher Symbol Only Button */}
           <button
