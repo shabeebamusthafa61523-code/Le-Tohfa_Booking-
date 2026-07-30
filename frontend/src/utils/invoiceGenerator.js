@@ -51,7 +51,7 @@ export const generateAdvanceInvoice = (booking) => {
 
   const totalAmount  = booking.totalAmount || 0;
   const balance      = (totalAmount || basicAmount) - (booking.advanceAmount || 0);
-  const logoUrl      = `${window.location.origin}/logo.png`;
+  const logoUrl      = `${window.location.origin}/logo2.png`;
   const guestName    = booking.guestName || 'Guest';
 
   const html = `

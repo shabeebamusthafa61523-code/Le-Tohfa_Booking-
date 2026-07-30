@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
+import { SplashScreen } from './components/SplashScreen';
 import { Dashboard } from './pages/Dashboard';
 import { BlockDateForm } from './pages/BlockDateForm';
 import { BookingsList } from './pages/BookingsList';
@@ -9,9 +10,12 @@ import { ToastProvider } from './context/ToastContext';
 import { ThemeProvider } from './context/ThemeContext';
 
 export function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
     <ThemeProvider>
       <ToastProvider>
+        {showSplash && <SplashScreen onFinished={() => setShowSplash(false)} />}
         <Router>
           <div style={{ minHeight: '100vh', background: 'var(--bg-color)', color: 'var(--text-main)' }}>
             <Navbar />
