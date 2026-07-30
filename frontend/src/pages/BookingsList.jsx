@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { PlusCircle, Edit, Trash2, X, Calendar, ArrowUpDown, LayoutGrid, List, Phone, Clock, User, SlidersHorizontal, Check } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, X, Calendar, ArrowUpDown, LayoutGrid, List, Phone, Clock, User, SlidersHorizontal, Check, FileText } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { generateAdvanceInvoice } from '../utils/invoiceGenerator';
 
 export const BookingsList = () => {
   const { toast, showConfirm } = useToast();
@@ -550,6 +551,14 @@ export const BookingsList = () => {
                             <td>
                               <div style={{ display: 'flex', gap: '0.4rem' }}>
                                 <button
+                                  onClick={() => generateAdvanceInvoice(b)}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '0.3rem 0.5rem', fontSize: '0.78rem', background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', color: '#fff', border: 'none' }}
+                                  title="Download Advance Invoice PDF"
+                                >
+                                  <FileText size={13} /> Invoice
+                                </button>
+                                <button
                                   onClick={() => { setEditingBooking(b); setEditPhoneError(''); }}
                                   className="btn btn-secondary"
                                   style={{ padding: '0.3rem 0.5rem', fontSize: '0.78rem' }}
@@ -685,6 +694,14 @@ export const BookingsList = () => {
 
                       {/* Card Actions */}
                       <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
+                        <button
+                          onClick={() => generateAdvanceInvoice(b)}
+                          className="btn btn-secondary"
+                          style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', padding: '0.4rem', background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', color: '#fff', border: 'none' }}
+                          title="Download Advance Invoice PDF"
+                        >
+                          <FileText size={14} /> Invoice
+                        </button>
                         <button
                           onClick={() => { setEditingBooking(b); setEditPhoneError(''); }}
                           className="btn btn-secondary"

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ChevronLeft, ChevronRight, PlusCircle, User, Phone, Clock, Calendar as CalendarIcon, FileText, X, Edit, Zap, Trash2 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { generateAdvanceInvoice } from '../utils/invoiceGenerator';
 
 export const CalendarView = () => {
   const { toast, showConfirm } = useToast();
@@ -570,6 +571,14 @@ export const CalendarView = () => {
               </button>
 
               <div style={{ display: 'flex', gap: '0.35rem' }}>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: '0.4rem 0.65rem', fontSize: '0.8rem', background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', color: '#fff', border: 'none' }}
+                  onClick={() => generateAdvanceInvoice(selectedBookingModal)}
+                  title="Download Advance Invoice PDF"
+                >
+                  <FileText size={14} /> Invoice
+                </button>
                 <button
                   className="btn btn-secondary"
                   style={{ padding: '0.4rem 0.65rem', fontSize: '0.8rem' }}

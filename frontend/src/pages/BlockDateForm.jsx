@@ -35,7 +35,7 @@ export const BlockDateForm = () => {
     bookingType: initialType,
     checkInTime: '3:00 PM to 12:00 PM',
     advanceAmount: 2000,
-    totalAmount: 12000,
+    totalAmount: 15000,
     status: 'pending',
     notes: '',
     createdByName: getSavedStaffName(),
@@ -62,16 +62,33 @@ export const BlockDateForm = () => {
   };
 
   const handleBookingTypeChange = (type) => {
-    let defaultTime = type === 'Staycation' ? '3:00 PM to 12:00 PM' : '9:00 AM to 9:00 PM';
+    let defaultTime;
+    let defaultTotal;
+    let activateCustomTime = false;
+
+    if (type === 'Staycation') {
+      defaultTime = '3:00 PM to 12:00 PM';
+      defaultTotal = 15000;
+    } else if (type === 'Daycation') {
+      defaultTime = '9:00 AM to 9:00 PM';
+      defaultTotal = 12000;
+    } else {
+      // Event
+      defaultTime = '';
+      defaultTotal = 25000;
+      activateCustomTime = true;
+    }
+
     const autoEndDate = calculateEndDate(formData.startDate, type);
 
     setFormData((prev) => ({
       ...prev,
       bookingType: type,
       checkInTime: defaultTime,
+      totalAmount: defaultTotal,
       endDate: autoEndDate,
     }));
-    setCustomTimeActive(false);
+    setCustomTimeActive(activateCustomTime);
   };
 
   const handleStartDateChange = (e) => {
@@ -221,44 +238,62 @@ export const BlockDateForm = () => {
             )}
           </div>
 
-          {/* Staycation vs Daycation selector */}
+          {/* Staycation / Daycation / Event selector */}
           <div className="form-group" style={{ marginBottom: '1.25rem' }}>
             <label className="form-label">Booking Type / Package</label>
-            <div className="responsive-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
               <button
                 type="button"
                 onClick={() => handleBookingTypeChange('Staycation')}
                 style={{
-                  padding: '0.65rem 0.85rem',
+                  padding: '0.65rem 0.5rem',
                   borderRadius: '6px',
                   border: '2px solid ' + (formData.bookingType === 'Staycation' ? '#059669' : '#cbd5e1'),
                   background: formData.bookingType === 'Staycation' ? '#dcfce7' : '#ffffff',
                   color: formData.bookingType === 'Staycation' ? '#166534' : '#475569',
                   fontWeight: '700',
-                  fontSize: '0.9rem',
+                  fontSize: '0.85rem',
                   cursor: 'pointer',
                   textAlign: 'center',
                 }}
               >
-                🛋️ Staycation (3 PM - 12 PM)
+                🛋️ Staycation
               </button>
 
               <button
                 type="button"
                 onClick={() => handleBookingTypeChange('Daycation')}
                 style={{
-                  padding: '0.65rem 0.85rem',
+                  padding: '0.65rem 0.5rem',
                   borderRadius: '6px',
                   border: '2px solid ' + (formData.bookingType === 'Daycation' ? '#0284c7' : '#cbd5e1'),
                   background: formData.bookingType === 'Daycation' ? '#e0f2fe' : '#ffffff',
                   color: formData.bookingType === 'Daycation' ? '#075985' : '#475569',
                   fontWeight: '700',
-                  fontSize: '0.9rem',
+                  fontSize: '0.85rem',
                   cursor: 'pointer',
                   textAlign: 'center',
                 }}
               >
-                ☀️ Daycation (9 AM - 9 PM)
+                ☀️ Daycation
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleBookingTypeChange('Event')}
+                style={{
+                  padding: '0.65rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '2px solid ' + (formData.bookingType === 'Event' ? '#7c3aed' : '#cbd5e1'),
+                  background: formData.bookingType === 'Event' ? '#f3e8ff' : '#ffffff',
+                  color: formData.bookingType === 'Event' ? '#6d28d9' : '#475569',
+                  fontWeight: '700',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                }}
+              >
+                🎉 Event
               </button>
             </div>
           </div>
@@ -303,7 +338,7 @@ export const BlockDateForm = () => {
               >
                 <option value="3:00 PM to 12:00 PM">3:00 PM to 12:00 PM (Staycation)</option>
                 <option value="9:00 AM to 9:00 PM">9:00 AM to 9:00 PM (Daycation)</option>
-                <option value="custom">✏️ Type Custom Time...</option>
+                <option value="custom">✏️ Custom Time (Event / Other)...</option>
               </select>
 
               {customTimeActive && (
@@ -311,7 +346,7 @@ export const BlockDateForm = () => {
                   type="text"
                   name="checkInTime"
                   className="form-input"
-                  placeholder="Type time e.g. 2:00 PM to 11:00 AM"
+                  placeholder="e.g. 10:00 AM to 8:00 PM"
                   value={formData.checkInTime}
                   onChange={handleChange}
                   required
@@ -360,49 +395,88 @@ export const BlockDateForm = () => {
             </div>
           </div>
 
-          {/* Advance Dropdown + Type */}
+          {/* Advance Paid (₹) — with quick preset buttons & single editable input */}
           <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-            <label className="form-label">Advance Paid (₹)</label>
-            <div className="responsive-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <select className="form-select" onChange={handleAdvancePreset} value={formData.advanceAmount}>
-                <option value="2000">₹2,000 Preset</option>
-                <option value="3000">₹3,000 Preset</option>
-                <option value="custom">Custom Amount / Type Below</option>
-              </select>
-
-              <input
-                type="number"
-                name="advanceAmount"
-                className="form-input"
-                placeholder="Type Advance Amount (₹)"
-                value={formData.advanceAmount}
-                onChange={handleChange}
-                required
-                min="0"
-              />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+              <label className="form-label" style={{ margin: 0 }}>Advance Paid (₹)</label>
+              
+              {/* Quick Preset Buttons */}
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setFormData((prev) => ({ ...prev, advanceAmount: 2000 }))}
+                  style={{
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: '12px',
+                    border: '1px solid ' + (Number(formData.advanceAmount) === 2000 ? '#16a34a' : 'var(--border-color)'),
+                    background: Number(formData.advanceAmount) === 2000 ? '#dcfce7' : 'var(--card-bg)',
+                    color: Number(formData.advanceAmount) === 2000 ? '#166534' : 'var(--text-main)',
+                    fontWeight: '700',
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ⚡ ₹2,000
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData((prev) => ({ ...prev, advanceAmount: 3000 }))}
+                  style={{
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: '12px',
+                    border: '1px solid ' + (Number(formData.advanceAmount) === 3000 ? '#16a34a' : 'var(--border-color)'),
+                    background: Number(formData.advanceAmount) === 3000 ? '#dcfce7' : 'var(--card-bg)',
+                    color: Number(formData.advanceAmount) === 3000 ? '#166534' : 'var(--text-main)',
+                    fontWeight: '700',
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ⚡ ₹3,000
+                </button>
+              </div>
             </div>
+
+            <input
+              type="number"
+              name="advanceAmount"
+              className="form-input"
+              placeholder="Type Advance Amount (₹)"
+              value={formData.advanceAmount}
+              onChange={handleChange}
+              required
+              min="0"
+              style={{ fontWeight: '700', fontSize: '1rem', color: '#16a34a' }}
+            />
           </div>
 
-          {/* Total Amount Dropdown + Type */}
+          {/* Total Amount — auto-filled by type, fully editable */}
           <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-            <label className="form-label">Total Booking Amount (₹)</label>
-            <div className="responsive-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <select className="form-select" onChange={handleTotalPreset} value={formData.totalAmount}>
-                <option value="12000">₹12,000 Preset</option>
-                <option value="15000">₹15,000 Preset</option>
-                <option value="custom">Custom Amount / Type Below</option>
-              </select>
-
-              <input
-                type="number"
-                name="totalAmount"
-                className="form-input"
-                placeholder="Type Total Amount (₹)"
-                value={formData.totalAmount}
-                onChange={handleChange}
-                min="0"
-              />
-            </div>
+            <label className="form-label">
+              Total Booking Amount (₹)
+              <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', fontWeight: '600', color:
+                formData.bookingType === 'Staycation' ? '#166534' :
+                formData.bookingType === 'Daycation'  ? '#075985' : '#6d28d9',
+                background:
+                  formData.bookingType === 'Staycation' ? '#dcfce7' :
+                  formData.bookingType === 'Daycation'  ? '#e0f2fe' : '#f3e8ff',
+                padding: '0.1rem 0.45rem', borderRadius: '10px',
+              }}>
+                {formData.bookingType === 'Staycation' ? '🛋️ ₹15,000 base'
+                  : formData.bookingType === 'Daycation' ? '☀️ ₹12,000 base'
+                  : '🎉 ₹25,000 base'}
+              </span>
+            </label>
+            <input
+              type="number"
+              name="totalAmount"
+              className="form-input"
+              placeholder="Total Booking Amount (₹)"
+              value={formData.totalAmount}
+              onChange={handleChange}
+              min="0"
+              style={{ fontWeight: '700', fontSize: '1rem' }}
+            />
           </div>
 
           {/* Status Selection: Pending vs Confirmed */}

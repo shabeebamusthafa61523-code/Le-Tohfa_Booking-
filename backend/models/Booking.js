@@ -28,7 +28,7 @@ const bookingSchema = new mongoose.Schema({
   },
   bookingType: {
     type: String,
-    enum: ['Staycation', 'Daycation'],
+    enum: ['Staycation', 'Daycation', 'Event'],
     default: 'Staycation',
   },
   checkInTime: {
