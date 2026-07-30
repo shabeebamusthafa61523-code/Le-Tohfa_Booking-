@@ -4,6 +4,7 @@ import axios from 'axios';
 import { ChevronLeft, ChevronRight, PlusCircle, User, Phone, Clock, Calendar as CalendarIcon, FileText, X, Edit, Zap, Trash2 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { generateAdvanceInvoice } from '../utils/invoiceGenerator';
+import { saveCachedBookings, getCachedBookings, getOfflinePendingQueue } from '../utils/offlineStorage';
 
 export const CalendarView = () => {
   const { toast, showConfirm } = useToast();
@@ -20,12 +21,22 @@ export const CalendarView = () => {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
   const fetchBookings = async () => {
     try {
       const res = await axios.get('/api/bookings');
       setBookings(res.data);
+      saveCachedBookings(res.data);
+      setIsOffline(false);
     } catch (err) {
-      toast.error('Failed to load bookings');
+      // Fallback to offline cached bookings + pending queue
+      const cached = getCachedBookings();
+      setBookings(cached);
+      setIsOffline(true);
+      if (cached.length > 0) {
+        toast.info('📶 Offline Mode — Loaded cached calendar bookings');
+      }
     }
   };
 

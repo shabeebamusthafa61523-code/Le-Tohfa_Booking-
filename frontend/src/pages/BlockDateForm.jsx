@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Pencil, Check, Calendar } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { addOfflineBooking } from '../utils/offlineStorage';
 
 export const BlockDateForm = () => {
   const navigate = useNavigate();
@@ -150,13 +151,28 @@ export const BlockDateForm = () => {
     localStorage.setItem('resort_active_staff_name', formData.createdByName || 'Staff 1');
 
     try {
+      if (!navigator.onLine) {
+        // Device is completely offline
+        addOfflineBooking(formData);
+        toast.info('📶 Saved Offline! Booking will auto-sync when internet reconnects.');
+        setTimeout(() => navigate('/calendar'), 1200);
+        return;
+      }
+
       await axios.post('/api/bookings', formData);
       toast.success('Date blocked successfully!');
       setTimeout(() => {
         navigate('/bookings');
       }, 1000);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to block dates');
+      if (!err.response) {
+        // Network error (offline fallback)
+        addOfflineBooking(formData);
+        toast.info('📶 Saved Offline! Booking will auto-sync when internet reconnects.');
+        setTimeout(() => navigate('/calendar'), 1200);
+      } else {
+        toast.error(err.response?.data?.message || 'Failed to block dates');
+      }
     } finally {
       setLoading(false);
     }
