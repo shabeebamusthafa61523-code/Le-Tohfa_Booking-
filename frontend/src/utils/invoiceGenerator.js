@@ -2,7 +2,7 @@
  * generateAdvanceInvoice
  * Opens a professional A4 single-page Advance Invoice in a new browser tab.
  * - 📄 Guaranteed Single Page A4 Layout (no overflow or page breaks)
- * - ⬇️ Save as PDF → Full un-truncated PDF download on all mobile phones & desktops
+ * - ⬇️ Save as PDF → Full un-truncated PDF download using off-screen 794px desktop rendering engine
  * - 📸 Save as Photo → Auto-saves high-res PNG directly to Gallery / Photos on Mobile & Desktop
  *
  * @param {Object} booking - The booking object from MongoDB
@@ -423,59 +423,98 @@ export const generateAdvanceInvoice = (booking) => {
       </div>
 
       <script>
+        // OFF-SCREEN 794px CLONE RENDERER (Guarantees 100% Un-truncated A4 PDF on Mobile & Desktop)
+        function renderCanvasForExport(callback) {
+          const originalCard = document.getElementById('invoiceCard');
+          
+          // Create temporary off-screen container with fixed desktop A4 width (794px)
+          const offscreenContainer = document.createElement('div');
+          offscreenContainer.style.position = 'absolute';
+          offscreenContainer.style.left = '-9999px';
+          offscreenContainer.style.top = '0';
+          offscreenContainer.style.width = '794px';
+          offscreenContainer.style.background = '#ffffff';
+          offscreenContainer.style.padding = '0';
+          offscreenContainer.style.margin = '0';
+          
+          const cloneCard = originalCard.cloneNode(true);
+          // Ensure clone wrapper has exact desktop padding
+          cloneCard.style.padding = '44px 50px';
+          cloneCard.style.width = '794px';
+          cloneCard.style.maxWidth = '794px';
+          cloneCard.style.borderRadius = '0';
+          cloneCard.style.boxShadow = 'none';
+
+          offscreenContainer.appendChild(cloneCard);
+          document.body.appendChild(offscreenContainer);
+
+          html2canvas(cloneCard, {
+            scale: 2, // High resolution crisp rendering
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            width: 794,
+            height: cloneCard.scrollHeight,
+          }).then(canvas => {
+            document.body.removeChild(offscreenContainer);
+            callback(canvas);
+          }).catch(err => {
+            document.body.removeChild(offscreenContainer);
+            console.error('Canvas capture error:', err);
+            callback(null);
+          });
+        }
+
         // Full Un-Truncated Mobile & Desktop PDF Download
         function downloadPDF() {
           const btn = document.getElementById('pdfBtn');
           btn.textContent = '⏳ Generating PDF...';
           btn.classList.add('btn-loading');
 
-          const card = document.getElementById('invoiceCard');
-          const fullHeight = card.scrollHeight;
-          const fullWidth = card.scrollWidth || 760;
-
-          html2canvas(card, {
-            scale: 2,
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: '#ffffff',
-            windowWidth: 800, // Force standard desktop width for rendering un-truncated A4 canvas
-            windowHeight: fullHeight + 100,
-            height: fullHeight,
-            width: fullWidth,
-            x: 0,
-            y: 0,
-            scrollX: 0,
-            scrollY: 0,
-          }).then(canvas => {
-            const imgData = canvas.toDataURL('image/jpeg', 0.98);
-            const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            
-            const pageW = 210; // Standard A4 Width mm
-            const pageH = 297; // Standard A4 Height mm
-            
-            let imgW = pageW;
-            let imgH = (canvas.height * pageW) / canvas.width;
-
-            // If height exceeds single page height, scale proportionally to fit 100% inside A4 page
-            if (imgH > (pageH - 12)) {
-              imgH = pageH - 12;
-              imgW = (canvas.width * imgH) / canvas.height;
+          renderCanvasForExport(function(canvas) {
+            if (!canvas) {
+              window.print();
+              btn.textContent = '⬇️ Download PDF';
+              btn.classList.remove('btn-loading');
+              return;
             }
 
-            const xMargin = (pageW - imgW) / 2;
-            const yMargin = (pageH - imgH) / 2;
+            try {
+              const imgData = canvas.toDataURL('image/jpeg', 0.98);
+              const { jsPDF } = window.jspdf;
+              const pdf = new jsPDF({
+                orientation: 'p',
+                unit: 'mm',
+                format: 'a4',
+              });
 
-            pdf.addImage(imgData, 'JPEG', xMargin, yMargin, imgW, imgH);
-            pdf.save('Invoice-${guestName.replace(/\\s+/g, '_')}-${invoiceNumber}.pdf');
+              const pageW = 210; // A4 width mm
+              const pageH = 297; // A4 height mm
 
-            btn.textContent = '⬇️ Download PDF';
-            btn.classList.remove('btn-loading');
-          }).catch(err => {
-            console.error(err);
-            window.print();
-            btn.textContent = '⬇️ Download PDF';
-            btn.classList.remove('btn-loading');
+              let imgW = pageW;
+              let imgH = (canvas.height * pageW) / canvas.width;
+
+              // If image height exceeds A4 height, scale both width & height proportionally to fit 100% inside 1 page
+              if (imgH > pageH) {
+                const ratio = (pageH - 6) / imgH; // 3mm top/bottom margin
+                imgH = pageH - 6;
+                imgW = imgW * ratio;
+              }
+
+              const xMargin = (pageW - imgW) / 2;
+              const yMargin = (pageH - imgH) / 2;
+
+              pdf.addImage(imgData, 'JPEG', xMargin, yMargin, imgW, imgH);
+              pdf.save('Invoice-${guestName.replace(/\\s+/g, '_')}-${invoiceNumber}.pdf');
+
+              btn.textContent = '⬇️ Download PDF';
+              btn.classList.remove('btn-loading');
+            } catch (e) {
+              console.error(e);
+              window.print();
+              btn.textContent = '⬇️ Download PDF';
+              btn.classList.remove('btn-loading');
+            }
           });
         }
 
@@ -485,24 +524,14 @@ export const generateAdvanceInvoice = (booking) => {
           btn.textContent = '⏳ Saving to Gallery...';
           btn.classList.add('btn-loading');
 
-          const card = document.getElementById('invoiceCard');
-          const fullHeight = card.scrollHeight;
-          const fullWidth = card.scrollWidth || 760;
+          renderCanvasForExport(function(canvas) {
+            if (!canvas) {
+              alert('Could not capture photo. Try Download PDF.');
+              btn.textContent = '📸 Save as Photo';
+              btn.classList.remove('btn-loading');
+              return;
+            }
 
-          html2canvas(card, {
-            scale: 2.5,
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: '#ffffff',
-            windowWidth: 800,
-            windowHeight: fullHeight + 100,
-            height: fullHeight,
-            width: fullWidth,
-            x: 0,
-            y: 0,
-            scrollX: 0,
-            scrollY: 0,
-          }).then(canvas => {
             canvas.toBlob(blob => {
               if (!blob) {
                 alert('Failed to generate image blob');
@@ -514,6 +543,7 @@ export const generateAdvanceInvoice = (booking) => {
               const fileName = 'Invoice-${guestName.replace(/\\s+/g, '_')}-${invoiceNumber}.png';
               const file = new File([blob], fileName, { type: 'image/png' });
 
+              // Web Share API support for mobile (saves directly to Photos / Gallery menu)
               if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 navigator.share({
                   files: [file],
@@ -529,10 +559,6 @@ export const generateAdvanceInvoice = (booking) => {
                 triggerDirectDownload(blob, fileName);
               }
             }, 'image/png', 1.0);
-          }).catch(err => {
-            alert('Could not capture photo. Try Download PDF.');
-            btn.textContent = '📸 Save as Photo';
-            btn.classList.remove('btn-loading');
           });
 
           function triggerDirectDownload(blob, fileName) {
