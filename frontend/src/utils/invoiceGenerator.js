@@ -3,7 +3,7 @@
  * Opens a professional A4 single-page Advance Invoice in a new browser tab.
  * - 📄 Guaranteed Single Page A4 Layout (no overflow or page breaks)
  * - ⬇️ Save as PDF → Clean 1-Click PDF file download + print options with NO browser headers/footers
- * - 📸 Save as Photo → High-res PNG image download
+ * - 📸 Save as Photo → Auto-saves high-res PNG directly to Gallery / Photos on Mobile & Desktop
  *
  * @param {Object} booking - The booking object from MongoDB
  */
@@ -276,7 +276,7 @@ export const generateAdvanceInvoice = (booking) => {
           .info-card { padding: 10px 12px; }
           .info-card .value { font-size: 13px; }
           .details-table tbody td { padding: 8px 10px; font-size: 12px; }
-          .amounts-box { padding: 14px 16px; margin-bottom: 14px; }
+          .amounts-box { padding: 16px 18px; margin-bottom: 14px; }
           .amount-row { font-size: 12px; }
           .amount-row.total-row { font-size: 14px; }
         }
@@ -284,7 +284,7 @@ export const generateAdvanceInvoice = (booking) => {
         /* ── CLEAN SINGLE PAGE A4 PRINTING (NO BROWSER HEADERS/FOOTERS) ── */
         @page {
           size: A4 portrait;
-          margin: 0; /* Zero margin removes browser URLs, dates, page 1 of 1 text */
+          margin: 0;
         }
         @media print {
           html, body {
@@ -423,7 +423,7 @@ export const generateAdvanceInvoice = (booking) => {
       </div>
 
       <script>
-        // Direct Clean PDF Generation (no printing artifacts, no URL headers/footers)
+        // Direct Clean PDF Download
         function downloadPDF() {
           const btn = document.getElementById('pdfBtn');
           btn.textContent = '⏳ Generating PDF...';
@@ -451,39 +451,78 @@ export const generateAdvanceInvoice = (booking) => {
             btn.textContent = '⬇️ Download PDF';
             btn.classList.remove('btn-loading');
           }).catch(err => {
-            // Fallback to clean browser print
             window.print();
             btn.textContent = '⬇️ Download PDF';
             btn.classList.remove('btn-loading');
           });
         }
 
-        // Save as High-Res PNG Photo
+        // Auto-save Photo to Gallery / Photos on Mobile & Desktop
         function saveAsPhoto() {
           const btn = document.getElementById('photoBtn');
-          btn.textContent = '⏳ Saving...';
+          btn.textContent = '⏳ Saving to Gallery...';
           btn.classList.add('btn-loading');
 
           const card = document.getElementById('invoiceCard');
+
           html2canvas(card, {
-            scale: 2,
+            scale: 2.5, // Crisp high-res output
             useCORS: true,
             allowTaint: true,
             backgroundColor: '#ffffff',
             scrollX: 0,
             scrollY: -window.scrollY,
           }).then(canvas => {
-            const link = document.createElement('a');
-            link.download = 'Invoice-${guestName.replace(/\\s+/g, '_')}-${invoiceNumber}.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            btn.textContent = '📸 Save as Photo';
-            btn.classList.remove('btn-loading');
+            canvas.toBlob(blob => {
+              if (!blob) {
+                alert('Failed to generate image blob');
+                btn.textContent = '📸 Save as Photo';
+                btn.classList.remove('btn-loading');
+                return;
+              }
+
+              const fileName = 'Invoice-${guestName.replace(/\\s+/g, '_')}-${invoiceNumber}.png';
+              const file = new File([blob], fileName, { type: 'image/png' });
+
+              // Web Share API support for mobile (saves directly to Photos / Gallery menu)
+              if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                navigator.share({
+                  files: [file],
+                  title: 'LeTohfa Invoice',
+                  text: 'Advance Invoice for ${guestName}'
+                }).then(() => {
+                  btn.textContent = '📸 Save as Photo';
+                  btn.classList.remove('btn-loading');
+                }).catch(() => {
+                  // Fallback to direct auto download
+                  triggerDirectDownload(blob, fileName);
+                });
+              } else {
+                // Direct Auto-Download to Mobile Downloads / Gallery
+                triggerDirectDownload(blob, fileName);
+              }
+            }, 'image/png', 1.0);
           }).catch(err => {
-            alert('Could not capture image.');
+            alert('Could not capture photo. Try Download PDF.');
             btn.textContent = '📸 Save as Photo';
             btn.classList.remove('btn-loading');
           });
+
+          function triggerDirectDownload(blob, fileName) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              btn.textContent = '📸 Save as Photo';
+              btn.classList.remove('btn-loading');
+            }, 300);
+          }
         }
       </script>
     </body>
