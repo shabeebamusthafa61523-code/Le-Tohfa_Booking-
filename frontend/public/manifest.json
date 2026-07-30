@@ -1,12 +1,18 @@
 {
-  "short_name": "LeTohfa",
+  "short_name": "Le'Tohfa",
   "name": "LETOHFA BOOKING",
-  "description": "Le'Tohfa Resort Booking and Date Blocking Management System",
+  "description": "Le'Tohfa Farmfinity Resort Booking & Date Blocking Management System",
   "icons": [
     {
       "src": "/logo.png",
+      "sizes": "192x192 512x512",
       "type": "image/png",
-      "sizes": "192x192 512x512"
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app-icon.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
     }
   ],
   "start_url": "/",
