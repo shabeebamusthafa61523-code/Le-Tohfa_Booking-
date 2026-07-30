@@ -2,7 +2,7 @@
  * generateAdvanceInvoice
  * Opens a professional A4 single-page Advance Invoice in a new browser tab.
  * - 📄 Guaranteed Single Page A4 Layout (no overflow or page breaks)
- * - ⬇️ Save as PDF → Clean 1-Click PDF file download + print options with NO browser headers/footers
+ * - ⬇️ Save as PDF → Full un-truncated PDF download on all mobile phones & desktops
  * - 📸 Save as Photo → Auto-saves high-res PNG directly to Gallery / Photos on Mobile & Desktop
  *
  * @param {Object} booking - The booking object from MongoDB
@@ -423,34 +423,56 @@ export const generateAdvanceInvoice = (booking) => {
       </div>
 
       <script>
-        // Direct Clean PDF Download
+        // Full Un-Truncated Mobile & Desktop PDF Download
         function downloadPDF() {
           const btn = document.getElementById('pdfBtn');
           btn.textContent = '⏳ Generating PDF...';
           btn.classList.add('btn-loading');
 
           const card = document.getElementById('invoiceCard');
+          const fullHeight = card.scrollHeight;
+          const fullWidth = card.scrollWidth || 760;
 
           html2canvas(card, {
             scale: 2,
             useCORS: true,
             allowTaint: true,
             backgroundColor: '#ffffff',
+            windowWidth: 800, // Force standard desktop width for rendering un-truncated A4 canvas
+            windowHeight: fullHeight + 100,
+            height: fullHeight,
+            width: fullWidth,
+            x: 0,
+            y: 0,
             scrollX: 0,
-            scrollY: -window.scrollY,
+            scrollY: 0,
           }).then(canvas => {
             const imgData = canvas.toDataURL('image/jpeg', 0.98);
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            
+            const pageW = 210; // Standard A4 Width mm
+            const pageH = 297; // Standard A4 Height mm
+            
+            let imgW = pageW;
+            let imgH = (canvas.height * pageW) / canvas.width;
 
-            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            // If height exceeds single page height, scale proportionally to fit 100% inside A4 page
+            if (imgH > (pageH - 12)) {
+              imgH = pageH - 12;
+              imgW = (canvas.width * imgH) / canvas.height;
+            }
+
+            const xMargin = (pageW - imgW) / 2;
+            const yMargin = (pageH - imgH) / 2;
+
+            pdf.addImage(imgData, 'JPEG', xMargin, yMargin, imgW, imgH);
             pdf.save('Invoice-${guestName.replace(/\\s+/g, '_')}-${invoiceNumber}.pdf');
 
             btn.textContent = '⬇️ Download PDF';
             btn.classList.remove('btn-loading');
           }).catch(err => {
+            console.error(err);
             window.print();
             btn.textContent = '⬇️ Download PDF';
             btn.classList.remove('btn-loading');
@@ -464,14 +486,22 @@ export const generateAdvanceInvoice = (booking) => {
           btn.classList.add('btn-loading');
 
           const card = document.getElementById('invoiceCard');
+          const fullHeight = card.scrollHeight;
+          const fullWidth = card.scrollWidth || 760;
 
           html2canvas(card, {
-            scale: 2.5, // Crisp high-res output
+            scale: 2.5,
             useCORS: true,
             allowTaint: true,
             backgroundColor: '#ffffff',
+            windowWidth: 800,
+            windowHeight: fullHeight + 100,
+            height: fullHeight,
+            width: fullWidth,
+            x: 0,
+            y: 0,
             scrollX: 0,
-            scrollY: -window.scrollY,
+            scrollY: 0,
           }).then(canvas => {
             canvas.toBlob(blob => {
               if (!blob) {
@@ -484,7 +514,6 @@ export const generateAdvanceInvoice = (booking) => {
               const fileName = 'Invoice-${guestName.replace(/\\s+/g, '_')}-${invoiceNumber}.png';
               const file = new File([blob], fileName, { type: 'image/png' });
 
-              // Web Share API support for mobile (saves directly to Photos / Gallery menu)
               if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 navigator.share({
                   files: [file],
@@ -494,11 +523,9 @@ export const generateAdvanceInvoice = (booking) => {
                   btn.textContent = '📸 Save as Photo';
                   btn.classList.remove('btn-loading');
                 }).catch(() => {
-                  // Fallback to direct auto download
                   triggerDirectDownload(blob, fileName);
                 });
               } else {
-                // Direct Auto-Download to Mobile Downloads / Gallery
                 triggerDirectDownload(blob, fileName);
               }
             }, 'image/png', 1.0);
