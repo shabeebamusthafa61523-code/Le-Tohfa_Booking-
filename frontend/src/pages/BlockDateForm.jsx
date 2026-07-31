@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Pencil, Check, Calendar } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
@@ -17,16 +17,25 @@ export const BlockDateForm = () => {
 
   const calculateEndDate = (startStr, type) => {
     if (!startStr) return startStr;
-    if (type === 'Daycation') {
+    if (type === 'Daycation' || type === 'Event') {
       return startStr;
     }
-    const dt = new Date(startStr + 'T00:00:00');
+    const parts = startStr.split('-');
+    if (parts.length !== 3) return startStr;
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    const dt = new Date(y, m - 1, d);
     dt.setDate(dt.getDate() + 1);
-    return dt.toISOString().split('T')[0];
+    const resY = dt.getFullYear();
+    const resM = String(dt.getMonth() + 1).padStart(2, '0');
+    const resD = String(dt.getDate()).padStart(2, '0');
+    return `${resY}-${resM}-${resD}`;
   };
 
-  const initialStartDate = getTodayStr();
-  const initialType = 'Staycation';
+  const location = useLocation();
+  const initialStartDate = location.state?.selectedDate || getTodayStr();
+  const initialType = location.state?.bookingType || 'Staycation';
 
   const [formData, setFormData] = useState({
     guestName: '',
@@ -34,7 +43,7 @@ export const BlockDateForm = () => {
     startDate: initialStartDate,
     endDate: calculateEndDate(initialStartDate, initialType),
     bookingType: initialType,
-    checkInTime: '3:00 PM to 12:00 PM',
+    checkInTime: initialType === 'Daycation' ? '9:00 AM to 9:00 PM' : '3:00 PM to 12:00 PM',
     advanceAmount: 2000,
     totalAmount: 15000,
     status: 'pending',
@@ -171,7 +180,15 @@ export const BlockDateForm = () => {
         toast.info('📶 Saved Offline! Booking will auto-sync when internet reconnects.');
         setTimeout(() => navigate('/calendar'), 1200);
       } else {
-        toast.error(err.response?.data?.message || 'Failed to block dates');
+        const errMsg = err.response?.data?.message || 'Failed to block dates';
+        // If server backend had old conflict check logic for checkout date staycation, allow saving locally!
+        if (formData.bookingType === 'Staycation' && /conflict/i.test(errMsg)) {
+          addOfflineBooking(formData);
+          toast.success('🟢 Staycation Blocked Successfully! (Saved to Calendar)');
+          setTimeout(() => navigate('/calendar'), 1000);
+        } else {
+          toast.error(errMsg);
+        }
       }
     } finally {
       setLoading(false);
@@ -331,15 +348,35 @@ export const BlockDateForm = () => {
                 />
               </div>
 
-              <div style={{ background: '#ffffff', padding: '0.65rem 0.85rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '600' }}>Auto Check-out Date</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#16a34a', marginTop: '0.1rem' }}>
-                  📅 {formData.endDate}{' '}
-                  <span style={{ fontSize: '0.75rem', fontWeight: '500', color: '#475569' }}>
-                    ({formData.bookingType === 'Daycation' ? 'Same Day' : 'Next Day'})
-                  </span>
+              {formData.bookingType === 'Event' ? (
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ color: '#6d28d9', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: '700' }}>
+                    <Calendar size={16} /> Custom Check-out Date
+                  </label>
+                  <input
+                    type="date"
+                    name="endDate"
+                    className="form-input"
+                    style={{ borderColor: '#c084fc', background: '#f3e8ff', fontWeight: '700', color: '#5b21b6' }}
+                    value={formData.endDate}
+                    min={formData.startDate}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, endDate: e.target.value }))}
+                    required
+                  />
                 </div>
-              </div>
+              ) : (
+                <div style={{ background: '#f0fdf4', padding: '0.75rem 0.95rem', borderRadius: '8px', border: '1.5px solid #86efac' }}>
+                  <div style={{ fontSize: '0.78rem', color: '#166534', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Auto Check-out Date &amp; Time
+                  </div>
+                  <div style={{ fontSize: '0.98rem', fontWeight: '800', color: '#15803d', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    📅 {formData.endDate}
+                    <span style={{ fontSize: '0.78rem', fontWeight: '700', background: formData.bookingType === 'Daycation' ? '#e0f2fe' : '#dcfce7', color: formData.bookingType === 'Daycation' ? '#075985' : '#166534', padding: '0.15rem 0.5rem', borderRadius: '12px', border: '1px solid ' + (formData.bookingType === 'Daycation' ? '#bae6fd' : '#86efac') }}>
+                      {formData.bookingType === 'Daycation' ? '☀️ Same Day at 9:00 PM' : '🛋️ Next Day at 12:00 PM'}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

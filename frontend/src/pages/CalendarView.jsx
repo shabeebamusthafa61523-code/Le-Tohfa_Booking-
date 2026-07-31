@@ -56,7 +56,14 @@ export const CalendarView = () => {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   const getBookingsForDate = (dateStr) => {
-    return bookings.filter(b => b.startDate <= dateStr && b.endDate >= dateStr);
+    return bookings.filter(b => {
+      if (b.status === 'cancelled') return false;
+      const type = (b.bookingType || 'Staycation').toLowerCase();
+      // For staycation, startDate is check-in (3pm), endDate is check-out (12pm)
+      // dateStr is included if it falls between startDate and endDate
+      const endDate = (type === 'staycation' && b.endDate === b.startDate) ? calculateEndDate(b.startDate) : (b.endDate || b.startDate);
+      return b.startDate <= dateStr && endDate >= dateStr;
+    });
   };
 
   const getStatusColorConfig = (status) => {
@@ -169,8 +176,9 @@ export const CalendarView = () => {
   };
 
   const handleCellClick = (dateStr, activeBookings) => {
-    if (activeBookings.length > 0) {
-      setSelectedBookingModal(activeBookings[0]);
+    const checkinBooking = activeBookings.find(b => b.startDate === dateStr);
+    if (checkinBooking) {
+      setSelectedBookingModal(checkinBooking);
     } else {
       setSelectedEmptyDateModal(dateStr);
     }
@@ -308,8 +316,36 @@ export const CalendarView = () => {
               const activeBookings = getBookingsForDate(dateStr);
               const isToday = new Date().toISOString().split('T')[0] === dateStr;
 
+              // Check if dateStr is checkout day for a Staycation (e.g. 31st)
+              const checkoutBooking = activeBookings.find(b => {
+                const type = (b.bookingType || 'Staycation').toLowerCase();
+                const end = (type === 'staycation' && b.endDate === b.startDate) ? calculateEndDate(b.startDate) : (b.endDate || b.startDate);
+                return type === 'staycation' && end === dateStr && b.startDate !== dateStr;
+              });
+
+              // Check if dateStr is checkin day for a Staycation/Daycation (starts today)
+              const checkinBooking = activeBookings.find(b => b.startDate === dateStr);
+
               let cellStyle = { background: 'var(--card-bg)', border: '1px solid var(--border-color)' };
-              if (activeBookings.length > 0) {
+              let isHalfFilled = false;
+
+              if (checkoutBooking && !checkinBooking) {
+                // HALF-FILLED DAY CELL: Checkout at 12pm, available from 3pm!
+                isHalfFilled = true;
+                const cfg = getStatusColorConfig(checkoutBooking.status);
+                cellStyle = {
+                  background: `linear-gradient(135deg, ${cfg.cellBg} 48%, var(--card-bg) 52%)`,
+                  border: `2px dashed ${cfg.cellBorder}`,
+                };
+              } else if (checkoutBooking && checkinBooking) {
+                // SPLIT DAY CELL: One checks out at 12pm, new one checks in at 3pm!
+                const cfgOut = getStatusColorConfig(checkoutBooking.status);
+                const cfgIn = getStatusColorConfig(checkinBooking.status);
+                cellStyle = {
+                  background: `linear-gradient(135deg, ${cfgOut.cellBg} 48%, ${cfgIn.cellBg} 52%)`,
+                  border: `2px solid ${cfgIn.cellBorder}`,
+                };
+              } else if (activeBookings.length > 0) {
                 const primaryBooking = activeBookings[0];
                 const cfg = getStatusColorConfig(primaryBooking.status);
                 cellStyle = { background: cfg.cellBg, border: `2px solid ${cfg.cellBorder}` };
@@ -320,7 +356,7 @@ export const CalendarView = () => {
                   key={dateStr}
                   onClick={() => handleCellClick(dateStr, activeBookings)}
                   style={{
-                    minHeight: '62px',
+                    minHeight: '68px',
                     borderRadius: '6px',
                     padding: '0.25rem 0.35rem',
                     cursor: 'pointer',
@@ -331,13 +367,13 @@ export const CalendarView = () => {
                     flexDirection: 'column',
                     justify: 'space-between',
                   }}
-                  title={activeBookings.length > 0 ? `${dayNum}: ${activeBookings[0].guestName}` : `${dayNum}: Click to block`}
+                  title={activeBookings.length > 0 ? `${dayNum}: ${activeBookings.map(b=>b.guestName).join(', ')}` : `${dayNum}: Click to block`}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     {/* BIGGER, BOLDER DATE NUMBER */}
                     <span style={{
                       fontWeight: '900',
-                      fontSize: '1.15rem', // BIGGER DATE FONT
+                      fontSize: '1.15rem',
                       color: isToday ? '#16a34a' : 'var(--text-main)',
                       background: isToday ? '#dcfce7' : 'transparent',
                       padding: isToday ? '0.05rem 0.35rem' : '0',
@@ -347,7 +383,13 @@ export const CalendarView = () => {
                       {dayNum}
                     </span>
 
-                    {activeBookings.length > 0 && (
+                    {isHalfFilled && (
+                      <span style={{ fontSize: '0.62rem', fontWeight: '800', background: '#dcfce7', color: '#166534', padding: '0.05rem 0.3rem', borderRadius: '4px', border: '1px solid #86efac' }}>
+                        🌗 12 PM Checkout
+                      </span>
+                    )}
+
+                    {!isHalfFilled && activeBookings.length > 0 && (
                       <span style={{ fontSize: '0.65rem', fontWeight: '800', color: '#334155' }}>
                         {activeBookings.length}
                       </span>
@@ -356,13 +398,14 @@ export const CalendarView = () => {
 
                   {activeBookings.map((b) => {
                     const cfg = getStatusColorConfig(b.status);
+                    const isCheckout = b.endDate === dateStr && b.startDate !== dateStr;
                     return (
                       <div
                         key={b._id}
                         onClick={(e) => handleBookingPillClick(e, b)}
                         style={{
-                          background: cfg.pillBg,
-                          color: cfg.pillText,
+                          background: isCheckout ? '#64748b' : cfg.pillBg,
+                          color: '#ffffff',
                           fontSize: '0.68rem',
                           padding: '0.1rem 0.3rem',
                           borderRadius: '3px',
@@ -371,10 +414,11 @@ export const CalendarView = () => {
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           lineHeight: '1.2',
+                          marginTop: '2px',
                         }}
-                        title={`${b.guestName} - Click for details`}
+                        title={`${b.guestName} (${isCheckout ? 'Check-out 12 PM' : 'Check-in 3 PM'}) - Click for details`}
                       >
-                        🔒 {b.guestName}
+                        {isCheckout ? `🚪 Out 12PM: ${b.guestName}` : `🔒 ${b.guestName}`}
                       </div>
                     );
                   })}
@@ -386,62 +430,99 @@ export const CalendarView = () => {
         </div>
       </div>
 
-      {/* DEAD-CENTERED POPUP MODAL FOR EMPTY DATE SELECTION */}
-      {selectedEmptyDateModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          width: '100vw', height: '100vh',
-          background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 10000, padding: '1rem', boxSizing: 'border-box',
-        }}>
-          <div className="card" style={{ width: '100%', maxWidth: '380px', padding: '1.25rem', textAlign: 'center', margin: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-              <h3 style={{ fontSize: '1.1rem', margin: 0, color: 'var(--text-main)', fontWeight: '700' }}>
-                Action for {selectedEmptyDateModal}
-              </h3>
-              <button onClick={() => setSelectedEmptyDateModal(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                <X size={18} />
-              </button>
-            </div>
+      {/* DEAD-CENTERED POPUP MODAL FOR DATE SELECTION / CHECKOUT DAY */}
+      {selectedEmptyDateModal && (() => {
+        const checkoutB = getBookingsForDate(selectedEmptyDateModal).find(b => {
+          const type = (b.bookingType || 'Staycation').toLowerCase();
+          const end = (type === 'staycation' && b.endDate === b.startDate) ? calculateEndDate(b.startDate) : (b.endDate || b.startDate);
+          return type === 'staycation' && end === selectedEmptyDateModal && b.startDate !== selectedEmptyDateModal;
+        });
 
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.1rem' }}>
-              Select option for this date:
-            </p>
+        return (
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            width: '100vw', height: '100vh',
+            background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 10000, padding: '1rem', boxSizing: 'border-box',
+          }}>
+            <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '1.25rem', textAlign: 'center', margin: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <h3 style={{ fontSize: '1.1rem', margin: 0, color: 'var(--text-main)', fontWeight: '700' }}>
+                  Action for {selectedEmptyDateModal}
+                </h3>
+                <button onClick={() => setSelectedEmptyDateModal(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <X size={18} />
+                </button>
+              </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
-              <button
-                className="btn btn-primary"
-                style={{ justifyContent: 'center', padding: '0.6rem', fontSize: '0.88rem' }}
-                onClick={() => {
-                  setSelectedEmptyDateModal(null);
-                  navigate('/block-date');
-                }}
-              >
-                📝 Enter Guest Details & Block
-              </button>
+              {checkoutB ? (
+                <div style={{ background: '#f0fdf4', padding: '0.65rem 0.85rem', borderRadius: '6px', border: '1px solid #86efac', marginBottom: '1rem', textAlign: 'left' }}>
+                  <div style={{ fontSize: '0.78rem', color: '#166534', fontWeight: '800' }}>
+                    🌗 CHECKOUT DAY NOTICE
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#15803d', fontWeight: '600', marginTop: '0.2rem' }}>
+                    <strong>{checkoutB.guestName}</strong> checks out at 12:00 PM Noon.
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#047857', fontWeight: '700', marginTop: '0.3rem', background: '#dcfce7', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>
+                    ✅ You CAN book a new Staycation starting at 3:00 PM!
+                  </div>
+                </div>
+              ) : (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.1rem' }}>
+                  Select option for this date:
+                </p>
+              )}
 
-              <button
-                className="btn"
-                style={{ background: '#fef08a', color: '#854d0e', border: '1px solid #eab308', justifyContent: 'center', padding: '0.6rem', fontWeight: '700', fontSize: '0.88rem' }}
-                onClick={() => handleQuickTempHold(selectedEmptyDateModal)}
-                disabled={loading}
-              >
-                <Zap size={16} color="#d97706" /> {loading ? 'Holding Date...' : '⚡ Quick Hold (No Details Needed)'}
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                <button
+                  className="btn btn-primary"
+                  style={{ justifyContent: 'center', padding: '0.65rem', fontSize: '0.88rem' }}
+                  onClick={() => {
+                    const dateToBook = selectedEmptyDateModal;
+                    setSelectedEmptyDateModal(null);
+                    navigate('/block-date', { state: { selectedDate: dateToBook, bookingType: 'Staycation' } });
+                  }}
+                >
+                  📝 Book Staycation starting 3:00 PM
+                </button>
 
-              <button
-                className="btn btn-secondary"
-                style={{ justifyContent: 'center', marginTop: '0.2rem', padding: '0.5rem', fontSize: '0.82rem' }}
-                onClick={() => setSelectedEmptyDateModal(null)}
-              >
-                Cancel
-              </button>
+                <button
+                  className="btn"
+                  style={{ background: '#fef08a', color: '#854d0e', border: '1px solid #eab308', justifyContent: 'center', padding: '0.6rem', fontWeight: '700', fontSize: '0.88rem' }}
+                  onClick={() => handleQuickTempHold(selectedEmptyDateModal)}
+                  disabled={loading}
+                >
+                  <Zap size={16} color="#d97706" /> {loading ? 'Holding Date...' : '⚡ Quick Hold (3:00 PM Staycation)'}
+                </button>
+
+                {checkoutB && (
+                  <button
+                    className="btn btn-secondary"
+                    style={{ justifyContent: 'center', padding: '0.5rem', fontSize: '0.82rem' }}
+                    onClick={() => {
+                      const cb = checkoutB;
+                      setSelectedEmptyDateModal(null);
+                      setSelectedBookingModal(cb);
+                    }}
+                  >
+                    🚪 View {checkoutB.guestName} Checkout Details
+                  </button>
+                )}
+
+                <button
+                  className="btn btn-secondary"
+                  style={{ justifyContent: 'center', marginTop: '0.2rem', padding: '0.5rem', fontSize: '0.82rem' }}
+                  onClick={() => setSelectedEmptyDateModal(null)}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* DEAD-CENTERED VIEW BOOKING DETAILS MODAL */}
       {selectedBookingModal && !editingBooking && (
@@ -539,10 +620,16 @@ export const CalendarView = () => {
                 <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#16a34a', marginTop: '0.1rem' }}>
                   {(() => {
                     const b = selectedBookingModal;
-                    if (b.bookingType === 'Staycation' && b.endDate === b.startDate) {
-                      const dt = new Date(b.startDate + 'T00:00:00');
-                      dt.setDate(dt.getDate() + 1);
-                      return dt.toISOString().split('T')[0];
+                    if (b.bookingType === 'Staycation' && (b.endDate === b.startDate || !b.endDate)) {
+                      const parts = (b.startDate || '').split('-');
+                      if (parts.length === 3) {
+                        const dt = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                        dt.setDate(dt.getDate() + 1);
+                        const resY = dt.getFullYear();
+                        const resM = String(dt.getMonth() + 1).padStart(2, '0');
+                        const resD = String(dt.getDate()).padStart(2, '0');
+                        return `${resY}-${resM}-${resD}`;
+                      }
                     }
                     return b.endDate || b.startDate;
                   })()}

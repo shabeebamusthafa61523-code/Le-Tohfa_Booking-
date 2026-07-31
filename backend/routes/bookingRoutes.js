@@ -3,12 +3,62 @@ import Booking from '../models/Booking.js';
 
 const router = express.Router();
 
-// Helper to check date overlap
-const doDatesOverlap = (startA, endA, startB, endB) => {
-  return startA <= endB && endA >= startB;
+// Helper to calculate exact next day string
+const getNextDayStr = (dateStr) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  const d = parseInt(parts[2], 10);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + 1);
+  const resY = dt.getFullYear();
+  const resM = String(dt.getMonth() + 1).padStart(2, '0');
+  const resD = String(dt.getDate()).padStart(2, '0');
+  return `${resY}-${resM}-${resD}`;
 };
 
-// Helper to validate 10-12 digit phone number (allows 0000000000 for temporary blocks)
+// Helper to check date & time slot collision between two bookings
+const doDatesOverlap = (startA, endA, typeA, startB, endB, typeB, currentId = null, targetId = null) => {
+  if (currentId && targetId && currentId.toString() === targetId.toString()) {
+    return false;
+  }
+
+  const tA = (typeA || 'Staycation').toString().trim().toLowerCase();
+  const tB = (typeB || 'Staycation').toString().trim().toLowerCase();
+
+  const isDayA = tA === 'daycation';
+  const isDayB = tB === 'daycation';
+
+  // Normalize end dates
+  const effEndA = isDayA ? startA : (endA && endA !== startA ? endA : getNextDayStr(startA));
+  const effEndB = isDayB ? startB : (endB && endB !== startB ? endB : getNextDayStr(startB));
+
+  // Rule 1: Same Check-in Date is always a conflict
+  if (startA === startB) {
+    return true;
+  }
+
+  // Rule 2: Daycation requested on a Staycation Checkout Date (overlaps 9am-12pm)
+  if (!isDayA && isDayB && effEndA === startB) {
+    return true;
+  }
+
+  // Rule 3: Booking A spans over Booking B's start date (e.g. A is Aug 2-Aug 4, B starts Aug 3)
+  if (startA < startB && effEndA > startB) {
+    return true;
+  }
+
+  // Rule 4: Booking B spans over Booking A's start date (e.g. B is Aug 1-Aug 3, A starts Aug 2)
+  if (startB < startA && effEndB > startA) {
+    return true;
+  }
+
+  return false;
+};
+
+// Helper to validate 10-digit phone number
 const isValidPhone = (phone) => {
   if (!phone) return false;
   const digits = phone.replace(/[\s\-\+]/g, '');
@@ -37,7 +87,7 @@ router.get('/', async (req, res) => {
       }
 
       if (startDate && endDate) {
-        result = result.filter(b => doDatesOverlap(b.startDate, b.endDate, startDate, endDate));
+        result = result.filter(b => b.status !== 'cancelled' && (b.startDate <= endDate && b.endDate >= startDate));
       }
 
       result.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
@@ -59,22 +109,19 @@ router.get('/', async (req, res) => {
     }
 
     if (startDate && endDate) {
-      query.$and = [
-        { startDate: { $lte: endDate } },
-        { endDate: { $gte: startDate } },
-      ];
+      query.startDate = { $lte: endDate };
+      query.endDate = { $gte: startDate };
     }
 
     const bookings = await Booking.find(query).sort({ startDate: 1 });
     res.json(bookings);
-  } catch (error) {
-    console.error('Fetch Bookings Error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error fetching bookings' });
   }
 });
 
 // @route   POST /api/bookings
-// @desc    Block new date & record guest booking details (or Temporary Block)
+// @desc    Create new booking / block date
 // @access  Public
 router.post('/', async (req, res) => {
   try {
@@ -90,19 +137,16 @@ router.post('/', async (req, res) => {
       status,
       notes,
       createdByName,
-      isTemporary,
     } = req.body;
 
-    // Handle Quick Temporary Block defaults
-    const finalGuestName = isTemporary || !guestName ? 'Temporary Block' : guestName;
-    const finalPhone = isTemporary || !phone ? '0000000000' : phone;
+    const isTemporary = (phone === '0000000000' || guestName === 'Temporary Block');
+    const finalPhone = isTemporary ? '0000000000' : (phone || '').replace(/\D/g, '');
+    const finalGuestName = isTemporary ? 'Temporary Block' : (guestName || 'Guest').trim();
 
-    // Required dates validation
     if (!startDate || !endDate) {
       return res.status(400).json({ message: 'Start date and End date are required' });
     }
 
-    // Strict 10-digit Phone Validation Check
     if (!isValidPhone(finalPhone)) {
       return res.status(400).json({ message: 'Invalid phone number. Phone number must be exactly 10 digits.' });
     }
@@ -113,12 +157,20 @@ router.post('/', async (req, res) => {
 
     const staffName = createdByName || 'Staff';
 
-    // Date collision check
+    // Date collision check with precise time slot awareness
     if (req.inMemoryMode) {
       const activeBookings = req.inMemoryBookings.filter(b => b.status !== 'cancelled');
-      const conflict = activeBookings.find(b => doDatesOverlap(b.startDate, b.endDate, startDate, endDate));
+      const conflict = activeBookings.find(b => doDatesOverlap(b.startDate, b.endDate, b.bookingType, startDate, endDate, bookingType));
       
       if (conflict) {
+        const confType = (conflict.bookingType || 'Staycation').toLowerCase();
+        const reqType = (bookingType || 'Staycation').toLowerCase();
+
+        if (confType === 'staycation' && reqType === 'daycation' && (conflict.endDate === startDate || conflict.startDate === startDate)) {
+          return res.status(400).json({
+            message: `Cannot book Daycation (9am-9pm) on ${startDate}. Previous Staycation for ${conflict.guestName} checks out at 12:00 PM. (You CAN book a Staycation starting at 3:00 PM).`,
+          });
+        }
         return res.status(400).json({
           message: `Dates conflict with existing booking for ${conflict.guestName} (${conflict.startDate} to ${conflict.endDate})`,
         });
@@ -131,7 +183,7 @@ router.post('/', async (req, res) => {
         startDate,
         endDate,
         bookingType: bookingType || 'Staycation',
-        checkInTime: checkInTime || '3:00 PM to 12:00 PM',
+        checkInTime: checkInTime || (bookingType === 'Daycation' ? '9:00 AM to 9:00 PM' : '3:00 PM to 12:00 PM'),
         advanceAmount: Number(advanceAmount) || 0,
         totalAmount: Number(totalAmount) || 0,
         status: status || 'pending',
@@ -145,16 +197,23 @@ router.post('/', async (req, res) => {
     }
 
     // MongoDB Mode Collision Check
-    const activeConflicts = await Booking.find({
+    const activeBookings = await Booking.find({
       status: { $ne: 'cancelled' },
-      $and: [
-        { startDate: { $lte: endDate } },
-        { endDate: { $gte: startDate } },
-      ],
     });
 
-    if (activeConflicts.length > 0) {
-      const conflict = activeConflicts[0];
+    const conflict = activeBookings.find(b =>
+      doDatesOverlap(b.startDate, b.endDate, b.bookingType, startDate, endDate, bookingType, null, b._id)
+    );
+
+    if (conflict) {
+      const confType = (conflict.bookingType || 'Staycation').toLowerCase();
+      const reqType = (bookingType || 'Staycation').toLowerCase();
+
+      if (confType === 'staycation' && reqType === 'daycation' && (conflict.endDate === startDate || conflict.startDate === startDate)) {
+        return res.status(400).json({
+          message: `Cannot book Daycation (9am-9pm) on ${startDate}. Previous Staycation for ${conflict.guestName} checks out at 12:00 PM. (You CAN book a Staycation starting at 3:00 PM).`,
+        });
+      }
       return res.status(400).json({
         message: `Dates conflict with existing booking for ${conflict.guestName} (${conflict.startDate} to ${conflict.endDate})`,
       });
@@ -166,7 +225,7 @@ router.post('/', async (req, res) => {
       startDate,
       endDate,
       bookingType: bookingType || 'Staycation',
-      checkInTime: checkInTime || '3:00 PM to 12:00 PM',
+      checkInTime: checkInTime || (bookingType === 'Daycation' ? '9:00 AM to 9:00 PM' : '3:00 PM to 12:00 PM'),
       advanceAmount: Number(advanceAmount) || 0,
       totalAmount: Number(totalAmount) || 0,
       status: status || 'pending',
@@ -175,18 +234,16 @@ router.post('/', async (req, res) => {
     });
 
     res.status(201).json(booking);
-  } catch (error) {
-    console.error('Create Booking Error:', error);
-    res.status(400).json({ message: error.message || 'Validation or Server error' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error creating booking' });
   }
 });
 
 // @route   PUT /api/bookings/:id
-// @desc    Update booking details
+// @desc    Update booking
 // @access  Public
 router.put('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
     const { phone } = req.body;
 
     if (phone && !isValidPhone(phone)) {
@@ -194,60 +251,36 @@ router.put('/:id', async (req, res) => {
     }
 
     if (req.inMemoryMode) {
-      const index = req.inMemoryBookings.findIndex(b => b._id === id);
-      if (index === -1) {
-        return res.status(404).json({ message: 'Booking not found' });
-      }
+      const idx = req.inMemoryBookings.findIndex(b => b._id === req.params.id);
+      if (idx === -1) return res.status(404).json({ message: 'Booking not found' });
 
-      req.inMemoryBookings[index] = {
-        ...req.inMemoryBookings[index],
-        ...req.body,
-        updatedAt: new Date().toISOString(),
-      };
-
-      return res.json(req.inMemoryBookings[index]);
+      req.inMemoryBookings[idx] = { ...req.inMemoryBookings[idx], ...req.body };
+      return res.json(req.inMemoryBookings[idx]);
     }
 
-    const booking = await Booking.findById(id);
-    if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
-
-    Object.assign(booking, req.body);
-    const updatedBooking = await booking.save();
-    res.json(updatedBooking);
-  } catch (error) {
-    console.error('Update Booking Error:', error);
-    res.status(400).json({ message: error.message || 'Server error' });
+    const updated = await Booking.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ message: 'Booking not found' });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: 'Error updating booking' });
   }
 });
 
 // @route   DELETE /api/bookings/:id
-// @desc    Delete/Cancel a booking
+// @desc    Delete booking
 // @access  Public
 router.delete('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-
     if (req.inMemoryMode) {
-      const index = req.inMemoryBookings.findIndex(b => b._id === id);
-      if (index === -1) {
-        return res.status(404).json({ message: 'Booking not found' });
-      }
-      req.inMemoryBookings.splice(index, 1);
-      return res.json({ message: 'Booking deleted successfully' });
+      req.inMemoryBookings = req.inMemoryBookings.filter(b => b._id !== req.params.id);
+      return res.json({ message: 'Booking deleted' });
     }
 
-    const booking = await Booking.findById(id);
-    if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
-
-    await booking.deleteOne();
+    const deleted = await Booking.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: 'Booking not found' });
     res.json({ message: 'Booking deleted successfully' });
-  } catch (error) {
-    console.error('Delete Booking Error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error deleting booking' });
   }
 });
 

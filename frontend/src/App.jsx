@@ -16,7 +16,7 @@ export function App() {
     <ThemeProvider>
       <ToastProvider>
         {showSplash && <SplashScreen onFinished={() => setShowSplash(false)} />}
-        <Router>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <div style={{ minHeight: '100vh', background: 'var(--bg-color)', color: 'var(--text-main)' }}>
             <Navbar />
             <Routes>

@@ -45,9 +45,17 @@ export const generateAdvanceInvoice = (booking) => {
 
   const getNextDayStr = (dateStr) => {
     if (!dateStr) return '';
-    const dt = new Date(dateStr + 'T00:00:00');
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    const dt = new Date(y, m - 1, d);
     dt.setDate(dt.getDate() + 1);
-    return dt.toISOString().split('T')[0];
+    const resY = dt.getFullYear();
+    const resM = String(dt.getMonth() + 1).padStart(2, '0');
+    const resD = String(dt.getDate()).padStart(2, '0');
+    return `${resY}-${resM}-${resD}`;
   };
 
   const isStaycation = type === 'staycation';
