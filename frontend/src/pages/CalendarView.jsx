@@ -537,7 +537,15 @@ export const CalendarView = () => {
                   <CalendarIcon size={11} /> Check-out
                 </div>
                 <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#16a34a', marginTop: '0.1rem' }}>
-                  {selectedBookingModal.endDate}
+                  {(() => {
+                    const b = selectedBookingModal;
+                    if (b.bookingType === 'Staycation' && b.endDate === b.startDate) {
+                      const dt = new Date(b.startDate + 'T00:00:00');
+                      dt.setDate(dt.getDate() + 1);
+                      return dt.toISOString().split('T')[0];
+                    }
+                    return b.endDate || b.startDate;
+                  })()}
                 </div>
               </div>
 

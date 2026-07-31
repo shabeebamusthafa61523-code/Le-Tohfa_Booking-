@@ -43,11 +43,25 @@ export const generateAdvanceInvoice = (booking) => {
     : type === 'daycation' ? 'Daycation'
     : 'Event / Other';
 
+  const getNextDayStr = (dateStr) => {
+    if (!dateStr) return '';
+    const dt = new Date(dateStr + 'T00:00:00');
+    dt.setDate(dt.getDate() + 1);
+    return dt.toISOString().split('T')[0];
+  };
+
+  const isStaycation = type === 'staycation';
+
   // Split "3:00 PM to 12:00 PM" → checkIn = "3:00 PM", checkOut = "12:00 PM"
-  const timeRaw = booking.checkInTime || '';
+  const timeRaw = booking.checkInTime || (isStaycation ? '3:00 PM to 12:00 PM' : '9:00 AM to 9:00 PM');
   const timeParts = timeRaw.split(/\s+to\s+/i);
-  const checkInTime  = timeParts[0]?.trim() || timeRaw || '—';
-  const checkOutTime = timeParts[1]?.trim() || timeRaw || '—';
+  const checkInTime  = timeParts[0]?.trim() || (isStaycation ? '3:00 PM' : timeRaw) || '—';
+  const checkOutTime = timeParts[1]?.trim() || (isStaycation ? '12:00 PM' : timeRaw) || '—';
+
+  // Check-out date for Staycation MUST be on the next day
+  const checkOutDate = (isStaycation && booking.endDate === booking.startDate)
+    ? getNextDayStr(booking.startDate)
+    : (booking.endDate || (isStaycation ? getNextDayStr(booking.startDate) : booking.startDate));
 
   const totalAmount  = booking.totalAmount || 0;
   const balance      = (totalAmount || basicAmount) - (booking.advanceAmount || 0);
@@ -365,7 +379,7 @@ export const generateAdvanceInvoice = (booking) => {
             </tr>
             <tr>
               <td class="label-col">Check-out Date &amp; Time</td>
-              <td><strong>${formatDate(booking.endDate)}</strong><br/><span style="color:#6b7280;font-size:12px;">🕐 ${checkOutTime}</span></td>
+              <td><strong>${formatDate(checkOutDate)}</strong><br/><span style="color:#6b7280;font-size:12px;">🕐 ${checkOutTime}</span></td>
             </tr>
             <tr>
               <td class="label-col">Booking Type</td>
