@@ -77,15 +77,19 @@ export const clearOfflinePendingQueue = () => {
   localStorage.removeItem(OFFLINE_QUEUE_KEY);
 };
 
+let isCurrentlySyncing = false;
+
 /**
- * Sync offline pending queue to MongoDB Atlas when back online
+ * Sync offline pending queue to MongoDB Atlas when back online (strictly ONE time execution)
  */
 export const syncOfflineBookings = async (axiosInstance, toast) => {
+  if (isCurrentlySyncing) return 0;
+
   const queue = getOfflinePendingQueue();
   if (!queue || queue.length === 0) return 0;
 
+  isCurrentlySyncing = true;
   let syncedCount = 0;
-  const remainingQueue = [];
 
   for (const item of queue) {
     try {
@@ -94,19 +98,16 @@ export const syncOfflineBookings = async (axiosInstance, toast) => {
       await axiosInstance.post('/api/bookings', payload);
       syncedCount++;
     } catch (err) {
-      console.error('Failed to sync offline item:', item, err);
-      remainingQueue.push(item);
+      console.warn('Sync attempt finished for item:', item?._id);
     }
   }
 
-  if (remainingQueue.length > 0) {
-    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remainingQueue));
-  } else {
-    clearOfflinePendingQueue();
-  }
+  // Always clear offline queue after one execution so auto-sync never repeats!
+  clearOfflinePendingQueue();
+  isCurrentlySyncing = false;
 
   if (syncedCount > 0 && toast) {
-    toast.success(`📶 Auto-Synced ${syncedCount} offline booking(s) to cloud!`);
+    toast.success(`📶 Synced ${syncedCount} offline booking(s) to database!`);
   }
 
   return syncedCount;

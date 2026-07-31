@@ -26,8 +26,15 @@ export const CalendarView = () => {
   const fetchBookings = async () => {
     try {
       const res = await axios.get('/api/bookings');
-      setBookings(res.data);
-      saveCachedBookings(res.data);
+      const pendingQueue = getOfflinePendingQueue();
+      const combined = [...res.data];
+      pendingQueue.forEach(p => {
+        if (!combined.some(b => b._id === p._id)) {
+          combined.push(p);
+        }
+      });
+      setBookings(combined);
+      saveCachedBookings(combined);
       setIsOffline(false);
     } catch (err) {
       // Fallback to offline cached bookings + pending queue
@@ -399,6 +406,8 @@ export const CalendarView = () => {
                   {activeBookings.map((b) => {
                     const cfg = getStatusColorConfig(b.status);
                     const isCheckout = b.endDate === dateStr && b.startDate !== dateStr;
+                    const displayName = (b.guestName || 'Guest').trim();
+                    const shortName = displayName.length > 5 ? `${displayName.slice(0, 5)}..` : displayName;
                     return (
                       <div
                         key={b._id}
@@ -416,9 +425,9 @@ export const CalendarView = () => {
                           lineHeight: '1.2',
                           marginTop: '2px',
                         }}
-                        title={`${b.guestName} (${isCheckout ? 'Check-out 12 PM' : 'Check-in 3 PM'}) - Click for details`}
+                        title={`${displayName} (${isCheckout ? 'Check-out 12 PM' : 'Check-in 3 PM'}) - Click for details`}
                       >
-                        {isCheckout ? `🚪 Out 12PM: ${b.guestName}` : `🔒 ${b.guestName}`}
+                        {isCheckout ? `🚪 Out 12PM: ${shortName}` : `🔒 ${shortName}`}
                       </div>
                     );
                   })}

@@ -15,10 +15,14 @@ export const Navbar = () => {
   const isCalendarActive = location.pathname === '/' || location.pathname === '/calendar';
 
   useEffect(() => {
+    let hasSynced = false;
+
     const handleOnline = async () => {
       setIsOnline(true);
-      toast.info('📶 Internet reconnected! Syncing offline bookings...');
-      await syncOfflineBookings(axios, toast);
+      if (!hasSynced) {
+        hasSynced = true;
+        await syncOfflineBookings(axios, toast);
+      }
     };
 
     const handleOffline = () => {
@@ -29,7 +33,8 @@ export const Navbar = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    if (navigator.onLine) {
+    if (navigator.onLine && !hasSynced) {
+      hasSynced = true;
       syncOfflineBookings(axios, toast);
     }
 
