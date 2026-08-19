@@ -334,7 +334,7 @@ export const generateAdvanceInvoice = (booking) => {
 
       <!-- ACTION BAR -->
       <div class="action-bar">
-        <button class="action-btn btn-close"  onclick="window.close()">✕ Close</button>
+        <button class="action-btn btn-close"  onclick="if(window.history.length > 1){ window.history.back(); } else { window.close(); }">✕ Close</button>
         <button class="action-btn btn-photo"  onclick="saveAsPhoto()" id="photoBtn">📸 Save as Photo</button>
         <button class="action-btn btn-pdf"    onclick="downloadPDF()" id="pdfBtn">⬇️ Download PDF</button>
       </div>
@@ -633,11 +633,14 @@ export const generateAdvanceInvoice = (booking) => {
     </html>
   `;
 
-  const win = window.open('', '_blank', 'width=840,height=960,scrollbars=yes');
-  if (win) {
-    win.document.write(html);
-    win.document.close();
-  } else {
-    alert('Please allow popups for this site to view the invoice.');
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const blobUrl = URL.createObjectURL(blob);
+
+  // Try opening invoice Blob URL in new window/tab
+  const win = window.open(blobUrl, '_blank');
+
+  // Fallback for Android Chrome Popup Blocker & PWA standalone mode
+  if (!win || win.closed || typeof win.closed === 'undefined') {
+    window.location.href = blobUrl;
   }
 };
