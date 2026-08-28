@@ -199,7 +199,7 @@ export const CalendarView = () => {
   const validatePhone = (phoneNumber) => {
     if (!phoneNumber) return 'Phone number is required';
     const digitsOnly = phoneNumber.replace(/\D/g, '');
-    if (digitsOnly.length !== 10) return 'Phone number must be exactly 10 digits';
+    if (digitsOnly.length < 10 || digitsOnly.length > 15) return 'Phone number must be between 10 and 15 digits';
     return '';
   };
 
@@ -756,15 +756,15 @@ export const CalendarView = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Phone Number (Exactly 10 Digits)</label>
+                <label className="form-label">Phone Number (10 - 15 Digits)</label>
                 <input
                   type="text"
                   className="form-input"
                   style={{ borderColor: editPhoneError ? '#ef4444' : undefined }}
                   value={editingBooking.phone}
-                  maxLength="10"
+                  maxLength="15"
                   onChange={(e) => {
-                    const p = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    const p = e.target.value.replace(/\D/g, '').slice(0, 15);
                     setEditingBooking({ ...editingBooking, phone: p });
                     setEditPhoneError(validatePhone(p));
                   }}
@@ -814,7 +814,7 @@ export const CalendarView = () => {
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setEditingBooking(null)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={Boolean(editPhoneError) || editingBooking.phone?.length !== 10}>Save Changes</button>
+                <button type="submit" className="btn btn-primary" disabled={Boolean(editPhoneError) || editingBooking.phone?.length < 10 || editingBooking.phone?.length > 15}>Save Changes</button>
               </div>
             </form>
           </div>
