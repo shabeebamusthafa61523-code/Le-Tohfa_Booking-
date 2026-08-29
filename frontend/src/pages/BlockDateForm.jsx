@@ -59,14 +59,14 @@ export const BlockDateForm = () => {
   const validatePhone = (phoneNumber) => {
     if (!phoneNumber) return 'Phone number is required';
     const digitsOnly = phoneNumber.replace(/\D/g, '');
-    if (digitsOnly.length !== 10) {
-      return 'Phone number must be exactly 10 digits';
+    if (digitsOnly.length < 10 || digitsOnly.length > 15) {
+      return 'Phone number must be between 10 and 15 digits';
     }
     return '';
   };
 
   const handlePhoneChange = (e) => {
-    const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+    const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 15);
     setFormData((prev) => ({ ...prev, phone: digitsOnly }));
     setPhoneError(validatePhone(digitsOnly));
   };
@@ -424,7 +424,7 @@ export const BlockDateForm = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Phone Number (Exactly 10 Digits)</label>
+              <label className="form-label">Phone Number (10 - 15 Digits)</label>
               <input
                 type="text"
                 name="phone"
@@ -433,7 +433,7 @@ export const BlockDateForm = () => {
                 placeholder="e.g. 9876543210"
                 value={formData.phone}
                 onChange={handlePhoneChange}
-                maxLength="10"
+                maxLength="15"
                 required
               />
               {phoneError ? (
@@ -442,7 +442,7 @@ export const BlockDateForm = () => {
                 </span>
               ) : (
                 <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
-                  {formData.phone.length}/10 digits
+                  {formData.phone.length}/15 digits
                 </span>
               )}
             </div>
@@ -571,7 +571,7 @@ export const BlockDateForm = () => {
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={loading || Boolean(phoneError) || formData.phone.length !== 10}
+              disabled={loading || Boolean(phoneError) || formData.phone.length < 10 || formData.phone.length > 15}
             >
               {loading ? 'Saving...' : 'Submit Booking'}
             </button>

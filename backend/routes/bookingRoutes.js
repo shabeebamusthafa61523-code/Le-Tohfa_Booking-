@@ -58,11 +58,11 @@ const doDatesOverlap = (startA, endA, typeA, startB, endB, typeB, currentId = nu
   return false;
 };
 
-// Helper to validate 10-digit phone number
+// Helper to validate 10-15 digit phone number
 const isValidPhone = (phone) => {
   if (!phone) return false;
   const digits = phone.replace(/[\s\-\+]/g, '');
-  return /^\d{10}$/.test(digits);
+  return /^\d{10,15}$/.test(digits);
 };
 
 // @route   GET /api/bookings
@@ -148,7 +148,7 @@ router.post('/', async (req, res) => {
     }
 
     if (!isValidPhone(finalPhone)) {
-      return res.status(400).json({ message: 'Invalid phone number. Phone number must be exactly 10 digits.' });
+      return res.status(400).json({ message: 'Invalid phone number. Phone number must be between 10 and 15 digits.' });
     }
 
     if (startDate > endDate) {
@@ -247,7 +247,7 @@ router.put('/:id', async (req, res) => {
     const { phone } = req.body;
 
     if (phone && !isValidPhone(phone)) {
-      return res.status(400).json({ message: 'Invalid phone number. Phone number must be exactly 10 digits.' });
+      return res.status(400).json({ message: 'Invalid phone number. Phone number must be between 10 and 15 digits.' });
     }
 
     if (req.inMemoryMode) {
