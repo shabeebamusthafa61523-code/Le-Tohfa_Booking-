@@ -191,7 +191,7 @@ export const generateAdvanceInvoice = (booking) => {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 12px;
-          margin-bottom: 18px;
+          margin-bottom: ${additionalNote ? '12px' : '18px'};
         }
         .info-card {
           background: #f8fafb;
@@ -236,7 +236,7 @@ export const generateAdvanceInvoice = (booking) => {
           border: 2px solid #86efac;
           border-radius: 10px;
           padding: 16px 20px;
-          margin-bottom: ${additionalNote ? '12px' : '18px'};
+          margin-bottom: 18px;
         }
         .amount-row {
           display: flex;
@@ -258,18 +258,19 @@ export const generateAdvanceInvoice = (booking) => {
 
         /* ── CHARGES NOTE ── */
         .charges-note {
-          background: #fffbeb;
-          border: 1px solid #fcd34d;
-          border-radius: 8px;
-          padding: 10px 14px;
+          background: #fef2f2;
+          border: 2px solid #dc2626;
+          border-radius: 10px;
+          padding: 14px 18px;
           margin-bottom: 18px;
           display: flex;
-          align-items: flex-start;
-          gap: 8px;
+          align-items: center;
+          gap: 12px;
+          box-shadow: 0 2px 10px rgba(220, 38, 38, 0.2);
         }
-        .charges-note .note-icon { font-size:15px; flex-shrink:0; margin-top:1px; }
-        .charges-note .note-text { font-size:12px; color:#92400e; font-weight:600; line-height:1.4; }
-        .charges-note .note-title { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:#b45309; margin-bottom:2px; }
+        .charges-note .note-icon { font-size: 22px; flex-shrink: 0; }
+        .charges-note .note-text { font-size: 14px; color: #991b1b; font-weight: 700; line-height: 1.5; }
+        .charges-note .note-title { font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: #dc2626; margin-bottom: 3px; }
 
         /* ── FOOTER ── */
         .invoice-footer {
@@ -374,6 +375,17 @@ export const generateAdvanceInvoice = (booking) => {
           </div>
         </div>
 
+        <!-- ADDITIONAL CHARGES NOTE -->
+        ${additionalNote ? `
+        <div class="charges-note">
+          <div class="note-icon">⚠️</div>
+          <div class="note-text">
+            <div class="note-title">Additional Charges Apply</div>
+            ${additionalNote}
+          </div>
+        </div>
+        ` : ''}
+
         <!-- BOOKING DETAILS TABLE -->
         <div class="section-title">Booking Details</div>
         <table class="details-table">
@@ -417,17 +429,6 @@ export const generateAdvanceInvoice = (booking) => {
             <span>${formatCurrency(balance >= 0 ? balance : 0)}</span>
           </div>
         </div>
-
-        <!-- ADDITIONAL CHARGES NOTE -->
-        ${additionalNote ? `
-        <div class="charges-note">
-          <div class="note-icon">⚠️</div>
-          <div class="note-text">
-            <div class="note-title">Additional Charges Apply</div>
-            ${additionalNote}
-          </div>
-        </div>
-        ` : ''}
 
         <!-- FOOTER -->
         <div class="invoice-footer">
