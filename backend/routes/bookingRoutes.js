@@ -266,6 +266,68 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// @route   DELETE /api/bookings/bulk/month
+// @desc    Bulk delete bookings for an old month
+// @access  Public
+router.delete('/bulk/month', async (req, res) => {
+  try {
+    const { month, status = 'all', force = 'false' } = req.query;
+
+    if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+      return res.status(400).json({ message: 'Valid month format (YYYY-MM) is required, e.g. 2026-08' });
+    }
+
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    if (month >= currentMonth && force !== 'true') {
+      return res.status(400).json({
+        message: `Safety Block: '${month}' is the current or a future month. Bulk delete is restricted to past months.`,
+      });
+    }
+
+    // In-Memory Mode
+    if (req.inMemoryMode) {
+      const initialCount = req.inMemoryBookings.length;
+      req.inMemoryBookings = req.inMemoryBookings.filter((b) => {
+        const matchesMonth = b.startDate && b.startDate.startsWith(month);
+        let matchesStatus = true;
+        if (status === 'completed_or_cancelled') {
+          matchesStatus = b.status === 'completed' || b.status === 'cancelled';
+        } else if (status !== 'all') {
+          matchesStatus = b.status === status;
+        }
+        return !(matchesMonth && matchesStatus);
+      });
+      const deletedCount = initialCount - req.inMemoryBookings.length;
+      return res.json({
+        message: `Successfully deleted ${deletedCount} booking(s) for ${month}`,
+        deletedCount,
+        month,
+      });
+    }
+
+    // MongoDB Mode
+    const query = {
+      startDate: { $regex: `^${month}` },
+    };
+
+    if (status === 'completed_or_cancelled') {
+      query.status = { $in: ['completed', 'cancelled'] };
+    } else if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    const result = await Booking.deleteMany(query);
+    res.json({
+      message: `Successfully deleted ${result.deletedCount} booking(s) for ${month}`,
+      deletedCount: result.deletedCount,
+      month,
+    });
+  } catch (err) {
+    console.error('Bulk delete error:', err);
+    res.status(500).json({ message: 'Error performing bulk delete for the specified month' });
+  }
+});
+
 // @route   DELETE /api/bookings/:id
 // @desc    Delete booking
 // @access  Public

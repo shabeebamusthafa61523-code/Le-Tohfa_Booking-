@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { PlusCircle, Edit, Trash2, X, Calendar, ArrowUpDown, LayoutGrid, List, Phone, Clock, User, SlidersHorizontal, Check, FileText } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, X, Calendar, ArrowUpDown, LayoutGrid, List, Phone, Clock, User, SlidersHorizontal, Check, FileText, AlertTriangle } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { generateAdvanceInvoice } from '../utils/invoiceGenerator';
 
@@ -18,6 +18,19 @@ export const BookingsList = () => {
   const [editingBooking, setEditingBooking] = useState(null);
   const [editPhoneError, setEditPhoneError] = useState('');
   const [updatingId, setUpdatingId] = useState(null);
+  const [bulkDeleteModal, setBulkDeleteModal] = useState(null);
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
+  const [activeMonthKey, setActiveMonthKey] = useState(null);
+  const [hoveredMonthKey, setHoveredMonthKey] = useState(null);
+
+  const currentMonthStr = useMemo(() => new Date().toISOString().substring(0, 7), []);
+
+  // Auto-hide revealed delete action after 6s of inactivity on touch devices
+  useEffect(() => {
+    if (!activeMonthKey) return;
+    const timer = setTimeout(() => setActiveMonthKey(null), 6000);
+    return () => clearTimeout(timer);
+  }, [activeMonthKey]);
 
   const filterPanelRef = useRef(null);
 
@@ -90,6 +103,56 @@ export const BookingsList = () => {
         toast.error('Error deleting booking');
       }
     });
+  };
+
+  const openBulkDeleteModal = (monthKey) => {
+    const monthBookings = bookings.filter((b) => b.startDate?.startsWith(monthKey));
+    const completedOrCancelled = monthBookings.filter(
+      (b) => b.status === 'completed' || b.status === 'cancelled'
+    ).length;
+
+    setBulkDeleteModal({
+      monthKey,
+      monthLabel: formatMonthYear(monthKey),
+      totalCount: monthBookings.length,
+      completedOrCancelledCount: completedOrCancelled,
+      selectedScope: 'all',
+    });
+  };
+
+  const executeBulkDelete = async () => {
+    if (!bulkDeleteModal) return;
+    setIsDeletingBulk(true);
+    try {
+      const { monthKey, monthLabel, selectedScope } = bulkDeleteModal;
+      const res = await axios.delete('/api/bookings/bulk/month', {
+        params: {
+          month: monthKey,
+          status: selectedScope,
+        },
+      });
+
+      // Update state in real-time
+      setBookings((prev) =>
+        prev.filter((b) => {
+          const matchesMonth = b.startDate && b.startDate.startsWith(monthKey);
+          let matchesStatus = true;
+          if (selectedScope === 'completed_or_cancelled') {
+            matchesStatus = b.status === 'completed' || b.status === 'cancelled';
+          } else if (selectedScope !== 'all') {
+            matchesStatus = b.status === selectedScope;
+          }
+          return !(matchesMonth && matchesStatus);
+        })
+      );
+
+      toast.success(res.data?.message || `Deleted bookings for ${monthLabel}`);
+      setBulkDeleteModal(null);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to bulk delete bookings');
+    } finally {
+      setIsDeletingBulk(false);
+    }
   };
 
   const handleUpdate = async (e) => {
@@ -424,29 +487,99 @@ export const BookingsList = () => {
           No bookings found matching criteria. <Link to="/block-date" style={{ color: '#16a34a' }}>Block a date now</Link>.
         </div>
       ) : (
-        Object.keys(groupedByMonth).map((monthKey) => (
-          <div key={monthKey} style={{ marginBottom: '1.5rem' }}>
-            
-            {/* Month Header Banner */}
-            <div style={{
-              background: 'var(--table-header-bg)',
-              padding: '0.65rem 1rem',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              marginBottom: '0.85rem',
-              display: 'flex',
-              alignItems: 'center',
-              justify: 'space-between',
-            }}>
-              <h3 style={{ fontSize: '1rem', color: 'var(--text-main)', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0 }}>
-                🗓️ {formatMonthYear(monthKey)}
-              </h3>
-              <span style={{ fontSize: '0.78rem', fontWeight: '700', background: 'var(--card-bg)', color: 'var(--text-main)', padding: '0.15rem 0.55rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                {groupedByMonth[monthKey].length} {groupedByMonth[monthKey].length === 1 ? 'Booking' : 'Bookings'}
-              </span>
-            </div>
+        Object.keys(groupedByMonth).map((monthKey) => {
+          const isPastMonth = monthKey !== 'Other' && monthKey < currentMonthStr;
+          const isRevealed = isPastMonth && (hoveredMonthKey === monthKey || activeMonthKey === monthKey);
 
-            {/* TABLE VIEW */}
+          return (
+            <div key={monthKey} style={{ marginBottom: '1.5rem' }}>
+              
+              {/* Month Header Banner */}
+              <div
+                onMouseEnter={() => isPastMonth && setHoveredMonthKey(monthKey)}
+                onMouseLeave={() => isPastMonth && setHoveredMonthKey(null)}
+                style={{
+                  background: 'var(--table-header-bg)',
+                  padding: '0.65rem 1rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  marginBottom: '0.85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  transition: 'background 0.2s ease',
+                }}
+              >
+                <h3 style={{ fontSize: '1rem', color: 'var(--text-main)', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0 }}>
+                  🗓️ {formatMonthYear(monthKey)}
+                </h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: '700', background: 'var(--card-bg)', color: 'var(--text-main)', padding: '0.15rem 0.55rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                    {groupedByMonth[monthKey].length} {groupedByMonth[monthKey].length === 1 ? 'Booking' : 'Bookings'}
+                  </span>
+
+                  {/* Hidden / Touch-reveal Delete Month Button for past months */}
+                  {isPastMonth && (
+                    <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+                      {isRevealed ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openBulkDeleteModal(monthKey);
+                          }}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            background: '#fee2e2',
+                            color: '#b91c1c',
+                            border: '1px solid #fca5a5',
+                            borderRadius: '6px',
+                            padding: '0.22rem 0.65rem',
+                            fontSize: '0.75rem',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            animation: 'slideIn 0.15s ease-out',
+                          }}
+                          title={`Bulk delete past month bookings for ${formatMonthYear(monthKey)}`}
+                        >
+                          <Trash2 size={12} /> Bulk Delete Month
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMonthKey(activeMonthKey === monthKey ? null : monthKey);
+                          }}
+                          onTouchStart={() => setActiveMonthKey(monthKey)}
+                          onMouseEnter={() => setHoveredMonthKey(monthKey)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '26px',
+                            height: '26px',
+                            borderRadius: '50%',
+                            border: '1px solid transparent',
+                            background: 'transparent',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            opacity: 0.35,
+                            transition: 'opacity 0.2s ease, transform 0.15s ease',
+                          }}
+                          title="Touch or hover to reveal Bulk Delete Month"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* TABLE VIEW */}
             {viewMode === 'table' ? (
               <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
                 <div className="table-responsive">
@@ -725,8 +858,9 @@ export const BookingsList = () => {
             )}
 
           </div>
-        ))
-      )}
+        );
+      })
+    )}
 
       {/* DEAD-CENTERED EDIT MODAL RESPONSIVE */}
       {editingBooking && (
@@ -829,6 +963,162 @@ export const BookingsList = () => {
                 <button type="submit" className="btn btn-primary" disabled={Boolean(editPhoneError) || editingBooking.phone?.length < 10 || editingBooking.phone?.length > 15}>Save Changes</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* BULK DELETE CONFIRMATION MODAL */}
+      {bulkDeleteModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 12000, padding: '1rem', boxSizing: 'border-box',
+        }}>
+          <div className="card" style={{
+            width: '100%',
+            maxWidth: '460px',
+            padding: '1.75rem',
+            textAlign: 'center',
+            margin: 'auto',
+            borderRadius: '12px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
+            animation: 'slideIn 0.15s ease-out',
+          }}>
+            {/* Warning Icon */}
+            <div style={{
+              width: '52px',
+              height: '52px',
+              borderRadius: '50%',
+              background: '#fee2e2',
+              color: '#dc2626',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1rem auto',
+            }}>
+              <AlertTriangle size={28} />
+            </div>
+
+            <h3 style={{ fontSize: '1.3rem', color: 'var(--text-main)', marginBottom: '0.4rem', fontWeight: '800' }}>
+              Bulk Delete Past Month
+            </h3>
+
+            {/* Month Badge */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              background: 'var(--table-header-bg)',
+              color: 'var(--text-main)',
+              padding: '0.35rem 0.85rem',
+              borderRadius: '20px',
+              fontWeight: '700',
+              fontSize: '0.95rem',
+              border: '1px solid var(--border-color)',
+              marginBottom: '1.25rem',
+            }}>
+              🗓️ {bulkDeleteModal.monthLabel}
+            </div>
+
+            {/* Deletion Scope Options */}
+            <div style={{
+              background: 'var(--table-header-bg)',
+              padding: '0.9rem',
+              borderRadius: '8px',
+              border: '1px solid var(--border-color)',
+              marginBottom: '1.25rem',
+              textAlign: 'left',
+            }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Select Records to Delete:
+              </div>
+
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', fontSize: '0.88rem', color: 'var(--text-main)', cursor: 'pointer', marginBottom: bulkDeleteModal.completedOrCancelledCount > 0 ? '0.65rem' : '0' }}>
+                <input
+                  type="radio"
+                  name="bulkScope"
+                  checked={bulkDeleteModal.selectedScope === 'all'}
+                  onChange={() => setBulkDeleteModal({ ...bulkDeleteModal, selectedScope: 'all' })}
+                  style={{ marginTop: '0.2rem', accentColor: '#dc2626' }}
+                />
+                <div>
+                  <strong>All Bookings</strong> in {bulkDeleteModal.monthLabel}
+                  <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                    Total: {bulkDeleteModal.totalCount} reservation(s)
+                  </div>
+                </div>
+              </label>
+
+              {bulkDeleteModal.completedOrCancelledCount > 0 && (
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', fontSize: '0.88rem', color: 'var(--text-main)', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="bulkScope"
+                    checked={bulkDeleteModal.selectedScope === 'completed_or_cancelled'}
+                    onChange={() => setBulkDeleteModal({ ...bulkDeleteModal, selectedScope: 'completed_or_cancelled' })}
+                    style={{ marginTop: '0.2rem', accentColor: '#dc2626' }}
+                  />
+                  <div>
+                    <strong>Completed & Cancelled only</strong>
+                    <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                      Total: {bulkDeleteModal.completedOrCancelledCount} of {bulkDeleteModal.totalCount} reservation(s)
+                    </div>
+                  </div>
+                </label>
+              )}
+            </div>
+
+            {/* Red Warning Banner */}
+            <div style={{
+              color: '#b91c1c',
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              padding: '0.65rem 0.85rem',
+              borderRadius: '8px',
+              fontSize: '0.82rem',
+              lineHeight: '1.45',
+              marginBottom: '1.5rem',
+              textAlign: 'left',
+            }}>
+              ⚠️ <strong>Warning:</strong> This action permanently removes all selected reservations and records from the database. It cannot be recovered.
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ flex: 1, padding: '0.65rem', justifyContent: 'center' }}
+                onClick={() => setBulkDeleteModal(null)}
+                disabled={isDeletingBulk}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-danger"
+                style={{
+                  flex: 1.2,
+                  padding: '0.65rem',
+                  justifyContent: 'center',
+                  fontWeight: '700',
+                  background: '#dc2626',
+                  borderColor: '#b91c1c',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                }}
+                onClick={executeBulkDelete}
+                disabled={isDeletingBulk}
+              >
+                <Trash2 size={16} />
+                {isDeletingBulk ? 'Deleting...' : 'Yes, Permanently Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}
