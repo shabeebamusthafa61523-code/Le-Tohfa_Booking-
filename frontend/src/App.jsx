@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard';
 import { BlockDateForm } from './pages/BlockDateForm';
 import { BookingsList } from './pages/BookingsList';
 import { CalendarView } from './pages/CalendarView';
+import { InvoiceBuilder } from './pages/InvoiceBuilder';
 import { ToastProvider } from './context/ToastContext';
 import { ThemeProvider } from './context/ThemeContext';
 
@@ -26,6 +27,7 @@ export function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/bookings" element={<BookingsList />} />
               <Route path="/block-date" element={<BlockDateForm />} />
+              <Route path="/invoice" element={<InvoiceBuilder />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

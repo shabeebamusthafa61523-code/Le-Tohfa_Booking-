@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, List, PlusCircle, Sun, Moon, Palmtree, LayoutDashboard, Wifi, WifiOff, Share2 } from 'lucide-react';
+import { Calendar, List, PlusCircle, Sun, Moon, Palmtree, LayoutDashboard, Wifi, WifiOff, Share2, FileText } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import { syncOfflineBookings } from '../utils/offlineStorage';
@@ -132,6 +132,13 @@ export const Navbar = () => {
             className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
           >
             <PlusCircle size={16} /> Block Date
+          </NavLink>
+
+          <NavLink
+            to="/invoice"
+            className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+          >
+            <FileText size={16} /> Invoice
           </NavLink>
 
           {/* Share App Link Button */}
